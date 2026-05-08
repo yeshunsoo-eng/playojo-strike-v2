@@ -102,6 +102,12 @@ canvas{display:block;width:100vw;height:100vh}
   </div>
   <div class="subtitle">PPC Team Game</div>
   <input id="nameInput" placeholder="Enter your callsign..." maxlength="16" autocomplete="off">
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#ff9900;font-size:.9rem;letter-spacing:2px">
+      <input type="checkbox" id="botsCheck" style="width:18px;height:18px;accent-color:#ff6600;cursor:pointer">
+      INCLUDE BOTS
+    </label>
+  </div>
   <button id="joinBtn">DEPLOY</button>
   <div class="hint">
     <b>WASD</b> Move &nbsp;|&nbsp; <b>Mouse</b> Aim &nbsp;|&nbsp; <b>Click</b> Shoot<br>
@@ -373,10 +379,29 @@ function spawnLaser(ox, oy, oz, dx, dy, dz, color) {
 }
 
 // ─────────────────────────────────────────────
-//  PLAYER MESHES
+//  NAME LABELS (canvas sprites above heads)
 // ─────────────────────────────────────────────
-const playerMeshes = {};
-function makePlayerMesh(team) {
+const nameLabels = {};
+
+function makeNameLabel(name, team) {
+  const c = document.createElement('canvas');
+  c.width = 256; c.height = 64;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, 256, 64);
+  ctx.font = 'bold 36px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.shadowColor = '#000'; ctx.shadowBlur = 6;
+  ctx.fillStyle = team === 'OJO' ? '#ff9900' : '#66aaff';
+  ctx.fillText(name, 128, 32);
+  const tex = new THREE.CanvasTexture(c);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(2, 0.5, 1);
+  return sprite;
+}
+
+function makePlayerMesh(team, name) {
   const g = new THREE.Group();
   const col = team === 'OJO' ? 0xff6600 : 0x0066ff;
   const em  = team === 'OJO' ? 0xff3300 : 0x003399;
@@ -389,6 +414,12 @@ function makePlayerMesh(team) {
   const gun = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.55),
     new THREE.MeshStandardMaterial({ color: 0x333333, emissive: 0x555555, emissiveIntensity: 0.4 }));
   gun.position.set(0.35, 1, -0.38); g.add(gun);
+
+  // Name label
+  const label = makeNameLabel(name || '?', team);
+  label.position.set(0, 2.1, 0);
+  g.add(label);
+
   scene.add(g); return g;
 }
 
@@ -617,8 +648,12 @@ function showDeath() {
   document.getElementById('deathScreen').style.display = 'flex';
   document.getElementById('lockPrompt').style.display  = 'none';
   let t = 5;
+  document.getElementById('respawnTimer').textContent = 'Respawning in ' + t + '...';
   const iv = setInterval(() => {
-    document.getElementById('respawnTimer').textContent = 'Respawning in ' + (--t) + '...';
+    t--;
+    document.getElementById('respawnTimer').textContent = t > 0
+      ? 'Respawning in ' + t + '...'
+      : 'RESPAWNING...';
     if (t <= 0) clearInterval(iv);
   }, 1000);
 }
