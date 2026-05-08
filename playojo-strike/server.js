@@ -1,5 +1,7 @@
 // PlayOJO Strike — Game Server
 // Run with: node server.js
+// Requires: npm install express socket.io
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -15,8 +17,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ── Config ──────────────────────────────────────────────────────────────────
 const CONFIG = {
   maxPlayers: 8,
-  roundTime: 120,
-  respawnDelay: 5,
+  roundTime: 120,        // seconds
+  respawnDelay: 5,       // seconds
   roundsToWin: 5,
   teams: ['OJO', 'STRIKE'],
   spawnPoints: {
@@ -56,11 +58,10 @@ function assignTeam() {
 }
 
 function startRound() {
-  if (roundInterval) clearInterval(roundInterval);
   roundActive = true;
   roundTimer = CONFIG.roundTime;
   killFeed = [];
-  
+  // Respawn everyone
   Object.values(players).forEach(p => {
     p.health = 100;
     p.alive = true;
@@ -69,7 +70,6 @@ function startRound() {
     p.ammo = CONFIG.weapons[p.weapon].ammo;
     p.reserve = CONFIG.weapons[p.weapon].reserve;
   });
-
   io.emit('roundStart', { players: sanitisePlayers(), scores });
   roundInterval = setInterval(tickRound, 1000);
 }
@@ -89,30 +89,23 @@ function endRound(winTeam) {
   } else {
     io.emit('roundEnd', { winner: 'draw', scores });
   }
-
+  // Check match win
   if (scores.OJO >= CONFIG.roundsToWin || scores.STRIKE >= CONFIG.roundsToWin) {
     const matchWinner = scores.OJO >= CONFIG.roundsToWin ? 'OJO' : 'STRIKE';
     io.emit('matchOver', { winner: matchWinner, scores });
     scores = { OJO: 0, STRIKE: 0 };
   }
-  setTimeout(() => {
-    if (Object.keys(players).length >= 2) startRound();
-  }, 5000);
+  setTimeout(startRound, 5000);
 }
 
 function checkRoundOver() {
-  if (!roundActive) return;
   const ojoAlive    = Object.values(players).filter(p => p.team === 'OJO'    && p.alive).length;
   const strikeAlive = Object.values(players).filter(p => p.team === 'STRIKE' && p.alive).length;
-  
-  // Only end if both teams actually have players
   const ojoTotal    = Object.values(players).filter(p => p.team === 'OJO').length;
   const strikeTotal = Object.values(players).filter(p => p.team === 'STRIKE').length;
-  
-  if (ojoTotal > 0 && strikeTotal > 0) {
-    if (ojoAlive === 0)    { endRound('STRIKE'); }
-    else if (strikeAlive === 0) { endRound('OJO'); }
-  }
+  if (ojoTotal === 0 || strikeTotal === 0) return;
+  if (ojoAlive === 0)    { endRound('STRIKE'); return; }
+  if (strikeAlive === 0) { endRound('OJO');    return; }
 }
 
 function sanitisePlayers() {
@@ -127,6 +120,8 @@ function sanitisePlayers() {
 
 // ── Socket events ────────────────────────────────────────────────────────────
 io.on('connection', socket => {
+  console.log('Player connected:', socket.id);
+
   if (Object.keys(players).length >= CONFIG.maxPlayers) {
     socket.emit('serverFull');
     socket.disconnect();
@@ -146,7 +141,6 @@ io.on('connection', socket => {
       reserve: CONFIG.weapons.rifle.reserve,
       lastShot: 0
     };
-    
     socket.emit('joined', {
       id: socket.id,
       player: players[socket.id],
@@ -155,8 +149,8 @@ io.on('connection', socket => {
       roundActive,
       roundTimer
     });
-
     io.emit('playerList', sanitisePlayers());
+    console.log(`${name} joined team ${team}`);
     if (!roundActive && Object.keys(players).length >= 2) startRound();
   });
 
@@ -170,51 +164,56 @@ io.on('connection', socket => {
   socket.on('shoot', ({ dirX, dirY, dirZ }) => {
     const shooter = players[socket.id];
     if (!shooter || !shooter.alive || !roundActive) return;
-    
     const now = Date.now();
     const wep = CONFIG.weapons[shooter.weapon];
     if (now - shooter.lastShot < wep.fireRate) return;
     if (shooter.ammo <= 0) { socket.emit('noAmmo'); return; }
-    
     shooter.lastShot = now;
     shooter.ammo--;
     socket.emit('ammoUpdate', { ammo: shooter.ammo, reserve: shooter.reserve });
 
-    socket.broadcast.emit('playerShot', {
-      id: socket.id, team: shooter.team,
-      x: shooter.x, y: shooter.y, z: shooter.z,
-      dx: dirX, dy: dirY, dz: dirZ
-    });
+    // Broadcast muzzle flash to others
+    socket.broadcast.emit('playerShot', { id: socket.id });
 
+    // Raycast hit detection (server-authoritative)
     const ox = shooter.x, oy = shooter.y + 0.8, oz = shooter.z;
     let hit = null, minT = Infinity;
 
+    // Cover box definitions (must match client) — [w,h,d,x,y,z]
     const BOXES = [
-      [4,2,4, -8,1,0], [4,2,4, 8,1,0], [2,3,8, 0,1.5,-10], [2,3,8, 0,1.5,10],
-      [8,1.5,2, -12,0.75,-6], [8,1.5,2, 12,0.75,6], [3,4,3, -15,2,-5], 
-      [3,4,3, 15,2,5], [2,2,10, -5,1,-18], [2,2,10, 5,1,18]
+      [4,2,4,  -8,1, 0], [4,2,4,   8,1, 0],
+      [2,3,8,   0,1.5,-10], [2,3,8,   0,1.5, 10],
+      [8,1.5,2,-12,0.75,-6],[8,1.5,2, 12,0.75, 6],
+      [3,4,3, -15,2,-5],   [3,4,3,  15,2, 5],
+      [2,2,10, -5,1,-18],  [2,2,10,  5,1, 18],
     ];
 
+    // Ray-AABB intersection (slab method) — returns t or Infinity
     function rayBox(bx,by,bz,bw,bh,bd) {
-      const minX=bx-bw/2, maxX=bx+bw/2, minY=by-bh/2, maxY=by+bh/2, minZ=bz-bd/2, maxZ=bz+bd/2;
-      const invX=1/dirX, invY=1/dirY, invZ=1/dirZ;
-      const t1=(minX-ox)*invX, t2=(maxX-ox)*invX, t3=(minY-oy)*invY, t4=(maxY-oy)*invY, t5=(minZ-oz)*invZ, t6=(maxZ-oz)*invZ;
-      const tmin = Math.max(Math.min(t1,t2), Math.min(t3,t4), Math.min(t5,t6));
-      const tmax = Math.min(Math.max(t1,t2), Math.max(t3,t4), Math.max(t5,t6));
-      return (tmax >= 0 && tmin <= tmax) ? tmin : Infinity;
+      const minX=bx-bw/2,maxX=bx+bw/2;
+      const minY=by-bh/2,maxY=by+bh/2;
+      const minZ=bz-bd/2,maxZ=bz+bd/2;
+      const tx1=(minX-ox)/dirX, tx2=(maxX-ox)/dirX;
+      const ty1=(minY-oy)/dirY, ty2=(maxY-oy)/dirY;
+      const tz1=(minZ-oz)/dirZ, tz2=(maxZ-oz)/dirZ;
+      const tmin=Math.max(Math.min(tx1,tx2),Math.min(ty1,ty2),Math.min(tz1,tz2));
+      const tmax=Math.min(Math.max(tx1,tx2),Math.max(ty1,ty2),Math.max(tz1,tz2));
+      return tmax>=0 && tmin<=tmax ? Math.max(0,tmin) : Infinity;
     }
 
+    // Find closest box hit distance to use as occlusion cutoff
     let boxBlock = Infinity;
-    BOXES.forEach(b => {
-      const t = rayBox(b[3], b[4], b[5], b[0], b[1], b[2]);
+    BOXES.forEach(([w,h,d,x,y,z]) => {
+      const t = rayBox(x,y,z,w,h,d);
       if (t < boxBlock) boxBlock = t;
     });
 
+    // Check players — only register hit if closer than blocking box
     Object.values(players).forEach(target => {
       if (target.id === socket.id || !target.alive || target.team === shooter.team) return;
       const dx = target.x - ox, dy = (target.y + 0.8) - oy, dz = target.z - oz;
       const dot = dx * dirX + dy * dirY + dz * dirZ;
-      if (dot < 0 || dot >= boxBlock) return;
+      if (dot < 0 || dot >= boxBlock) return; // box is in the way
       const cx = ox + dirX * dot - target.x;
       const cy = oy + dirY * dot - (target.y + 0.8);
       const cz = oz + dirZ * dot - target.z;
@@ -226,12 +225,16 @@ io.on('connection', socket => {
       hit.health -= wep.damage;
       io.emit('playerHit', { id: hit.id, health: hit.health, shooterId: socket.id });
       if (hit.health <= 0) {
-        hit.alive = false; hit.deaths++; shooter.kills++;
-        killFeed.unshift({ killer: shooter.name, victim: hit.name, weapon: shooter.weapon, time: Date.now() });
+        hit.alive = false;
+        hit.deaths++;
+        shooter.kills++;
+        const feedEntry = { killer: shooter.name, victim: hit.name, weapon: shooter.weapon, time: Date.now() };
+        killFeed.unshift(feedEntry);
         if (killFeed.length > 5) killFeed.pop();
         io.emit('playerKilled', { id: hit.id, killerId: socket.id, killerName: shooter.name, victimName: hit.name, killFeed });
         io.emit('scoreUpdate', sanitisePlayers());
         checkRoundOver();
+        // Respawn after delay
         setTimeout(() => {
           if (!players[hit.id]) return;
           const sp = getSpawn(hit.team);
@@ -248,7 +251,8 @@ io.on('connection', socket => {
     const p = players[socket.id];
     if (!p || !p.alive) return;
     const wep = CONFIG.weapons[p.weapon];
-    const take = Math.min(wep.ammo - p.ammo, p.reserve);
+    const needed = wep.ammo - p.ammo;
+    const take = Math.min(needed, p.reserve);
     p.ammo += take; p.reserve -= take;
     socket.emit('ammoUpdate', { ammo: p.ammo, reserve: p.reserve });
   });
@@ -264,10 +268,11 @@ io.on('connection', socket => {
   });
 
   socket.on('disconnect', () => {
-    if (players[socket.id]) delete players[socket.id];
+    const p = players[socket.id];
+    if (p) { console.log(`${p.name} disconnected`); delete players[socket.id]; }
     io.emit('playerList', sanitisePlayers());
     checkRoundOver();
   });
 });
 
-server.listen(PORT, () => console.log(`🎮 PlayOJO Strike running on http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`\n🎮 PlayOJO Strike server running on http://localhost:${PORT}\n`));
