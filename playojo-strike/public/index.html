@@ -13,6 +13,10 @@ body{background:#1a1a2e;color:#fff;font-family:'Segoe UI',sans-serif;overflow:hi
 .subtitle{font-size:1rem;color:#ff6600;letter-spacing:6px;margin-bottom:2rem;text-transform:uppercase}
 #nameInput{padding:12px 20px;font-size:1rem;border-radius:8px;border:2px solid #ff6600;
   background:#222;color:#fff;text-align:center;width:260px;margin-bottom:1rem;outline:none}
+.bot-row{display:flex;align-items:center;gap:10px;margin-bottom:1rem}
+.bot-row label{display:flex;align-items:center;gap:8px;cursor:pointer;color:#ff9900;
+  font-size:.9rem;letter-spacing:2px}
+.bot-row input[type=checkbox]{width:18px;height:18px;accent-color:#ff6600;cursor:pointer}
 #joinBtn{padding:14px 40px;font-size:1.1rem;font-weight:700;border:none;border-radius:8px;
   background:linear-gradient(90deg,#ff6600,#ff9900);color:#fff;cursor:pointer;
   letter-spacing:2px;text-transform:uppercase;transition:.2s}
@@ -102,11 +106,8 @@ canvas{display:block;width:100vw;height:100vh}
   </div>
   <div class="subtitle">PPC Team Game</div>
   <input id="nameInput" placeholder="Enter your callsign..." maxlength="16" autocomplete="off">
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:1rem">
-    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#ff9900;font-size:.9rem;letter-spacing:2px">
-      <input type="checkbox" id="botsCheck" style="width:18px;height:18px;accent-color:#ff6600;cursor:pointer">
-      INCLUDE BOTS
-    </label>
+  <div class="bot-row">
+    <label><input type="checkbox" id="botsCheck"> INCLUDE BOTS</label>
   </div>
   <button id="joinBtn">DEPLOY</button>
   <div class="hint">
@@ -174,7 +175,7 @@ canvas{display:block;width:100vw;height:100vh}
 <script src="/socket.io/socket.io.js"></script>
 <script>
 // ─────────────────────────────────────────────
-//  SOCKET — init first before anything else
+//  SOCKET
 // ─────────────────────────────────────────────
 const socket = io({ autoConnect: true });
 
@@ -183,42 +184,42 @@ const socket = io({ autoConnect: true });
 // ─────────────────────────────────────────────
 let myId = null, myTeam = null;
 let alive = true, health = 100;
-let inGame = false;          // only true after server confirms join
+let inGame = false;
 let pointerLocked = false;
 let shooting = false;
 let lastShotTime = 0;
 let currentWeapon = 'rifle';
 let remotePlayers = {};
 let onGround = true;
-const velocity = { x: 0, y: 0, z: 0 };
+const velocity = { x:0, y:0, z:0 };
 let pitch = 0, yaw = 0;
 let sendTimer = 0;
 
-const WEAPON_RATE  = { rifle: 150, pistol: 400, sniper: 1200 };
-const WEAPON_COLOR = { rifle: 0xff4400, pistol: 0x44aaff, sniper: 0x00ffcc };
-const WEAPON_LABEL = { rifle: 'PLASMA RIFLE', pistol: 'ION PISTOL', sniper: 'VOID SNIPER' };
+const WEAPON_RATE  = { rifle:150, pistol:400, sniper:1200 };
+const WEAPON_COLOR = { rifle:0xff4400, pistol:0x44aaff, sniper:0x00ffcc };
+const WEAPON_LABEL = { rifle:'PLASMA RIFLE', pistol:'ION PISTOL', sniper:'VOID SNIPER' };
 const GRAVITY = -20, JUMP_V = 8, WALK = 8, RUN = 13;
 const P_RADIUS = 0.35, P_HEIGHT = 1.8;
 
 // ─────────────────────────────────────────────
-//  RENDERER / SCENE
+//  RENDERER
 // ─────────────────────────────────────────────
 const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
 renderer.shadowMap.enabled = true;
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 
-const scene = new THREE.Scene();
+const scene  = new THREE.Scene();
 scene.background = new THREE.Color(0x2a2a4a);
 scene.fog = new THREE.Fog(0x2a2a4a, 25, 90);
 
-const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 200);
+const camera = new THREE.PerspectiveCamera(75, innerWidth/innerHeight, 0.1, 200);
 camera.position.set(0, 1.7, 0);
 
 window.addEventListener('resize', () => {
   renderer.setSize(innerWidth, innerHeight);
-  camera.aspect = innerWidth / innerHeight;
+  camera.aspect = innerWidth/innerHeight;
   camera.updateProjectionMatrix();
 });
 
@@ -228,59 +229,45 @@ window.addEventListener('resize', () => {
 scene.add(new THREE.AmbientLight(0xaaaacc, 1.4));
 const sun = new THREE.DirectionalLight(0xffffff, 1.2);
 sun.position.set(10, 30, 10); sun.castShadow = true; scene.add(sun);
-const fillLight = new THREE.DirectionalLight(0xffeedd, 0.5);
-fillLight.position.set(-10, 10, -10);
-scene.add(fillLight);
-
-const neonLights = [
-  [0, 5, 0, 0xff6600], [-15, 4, -15, 0x0099ff], [15, 4, 15, 0xff0088],
-  [-15, 4, 15, 0x00ffcc], [15, 4, -15, 0xffcc00]
-];
-neonLights.forEach(([x, y, z, c]) => {
+const fill = new THREE.DirectionalLight(0xffeedd, 0.5);
+fill.position.set(-10, 10, -10); scene.add(fill);
+[
+  [0,5,0,0xff6600], [-15,4,-15,0x0099ff], [15,4,15,0xff0088],
+  [-15,4,15,0x00ffcc], [15,4,-15,0xffcc00]
+].forEach(([x,y,z,c]) => {
   const l = new THREE.PointLight(c, 1.8, 30);
-  l.position.set(x, y, z); scene.add(l);
+  l.position.set(x,y,z); scene.add(l);
 });
 
 // ─────────────────────────────────────────────
-//  GEOMETRY HELPERS
+//  HELPERS
 // ─────────────────────────────────────────────
-function stdMat(col, emissive = 0x000000, ei = 0) {
-  return new THREE.MeshStandardMaterial({ color: col, emissive, emissiveIntensity: ei, roughness: 0.7 });
+function stdMat(col, em=0x000000, ei=0) {
+  return new THREE.MeshStandardMaterial({ color:col, emissive:em, emissiveIntensity:ei, roughness:0.7 });
 }
-function addBox(w, h, d, x, y, z, mat) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-  m.position.set(x, y, z);
-  m.castShadow = m.receiveShadow = true;
+function addBox(w,h,d,x,y,z,mat) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat);
+  m.position.set(x,y,z); m.castShadow = m.receiveShadow = true;
   scene.add(m); return m;
 }
 
 // ─────────────────────────────────────────────
 //  MAP
 // ─────────────────────────────────────────────
-// Floor
-addBox(80, 0.2, 80, 0, 0, 0, stdMat(0x1a1a3a));
-const grid = new THREE.GridHelper(80, 40, 0xff6600, 0x333355);
+addBox(80,0.2,80, 0,0,0, stdMat(0x1a1a3a));
+const grid = new THREE.GridHelper(80,40,0xff6600,0x333355);
 grid.position.y = 0.11; scene.add(grid);
 
-// Walls
-const wallM = stdMat(0x222244, 0x000833, 0.3);
-addBox(80, 8, 1, 0, 4, -40, wallM);
-addBox(80, 8, 1, 0, 4,  40, wallM);
-addBox(1, 8, 80, -40, 4, 0, wallM);
-addBox(1, 8, 80,  40, 4, 0, wallM);
+const wallM = stdMat(0x222244,0x000833,0.3);
+addBox(80,8,1, 0,4,-40, wallM); addBox(80,8,1, 0,4,40,  wallM);
+addBox(1,8,80, -40,4,0, wallM); addBox(1,8,80,  40,4,0, wallM);
 
-// Cover blocks — keep in sync with server COVER_DEFS
 const COVER = [
-  [4, 2, 4,   -8, 1,   0],
-  [4, 2, 4,    8, 1,   0],
-  [2, 3, 8,    0, 1.5,-10],
-  [2, 3, 8,    0, 1.5, 10],
-  [8, 1.5, 2,-12, 0.75,-6],
-  [8, 1.5, 2, 12, 0.75, 6],
-  [3, 4, 3,  -15, 2,  -5],
-  [3, 4, 3,   15, 2,   5],
-  [2, 2, 10,  -5, 1, -18],
-  [2, 2, 10,   5, 1,  18],
+  [4,2,4,   -8,1,   0], [4,2,4,    8,1,   0],
+  [2,3,8,    0,1.5,-10], [2,3,8,    0,1.5, 10],
+  [8,1.5,2,-12,0.75,-6], [8,1.5,2, 12,0.75, 6],
+  [3,4,3,  -15,2,  -5], [3,4,3,   15,2,   5],
+  [2,2,10,  -5,1, -18], [2,2,10,   5,1,  18],
 ];
 const COVER_COLS = [
   [0x2a0844,0x6600ff],[0x2a0844,0x6600ff],
@@ -290,17 +277,17 @@ const COVER_COLS = [
   [0x0d2a0d,0x00ff66],[0x0d2a0d,0x00ff66],
 ];
 const colliders = [];
-COVER.forEach(([w, h, d, x, y, z], i) => {
-  const [col, em] = COVER_COLS[i];
-  addBox(w, h, d, x, y, z, stdMat(col, em, 0.5));
-  colliders.push({ minX: x-w/2, maxX: x+w/2, minY: y-h/2, maxY: y+h/2, minZ: z-d/2, maxZ: z+d/2 });
+COVER.forEach(([w,h,d,x,y,z], i) => {
+  const [col,em] = COVER_COLS[i];
+  addBox(w,h,d,x,y,z, stdMat(col,em,0.5));
+  colliders.push({ minX:x-w/2,maxX:x+w/2, minY:y-h/2,maxY:y+h/2, minZ:z-d/2,maxZ:z+d/2 });
 });
 
-// Neon corner lines
-[[-39,0,-39,-39,7,-39],[39,0,-39,39,7,-39],[-39,0,39,-39,7,39],[39,0,39,39,7,39]].forEach(([x1,y1,z1,x2,y2,z2]) => {
+// Corner neon lines
+[[-39,0,-39,-39,7,-39],[39,0,-39,39,7,-39],[-39,0,39,-39,7,39],[39,0,39,39,7,39]].forEach(([x1,y1,z1,x2,y2,z2])=>{
   scene.add(new THREE.Line(
-    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x1,y1,z1), new THREE.Vector3(x2,y2,z2)]),
-    new THREE.LineBasicMaterial({ color: 0xff6600 })
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x1,y1,z1),new THREE.Vector3(x2,y2,z2)]),
+    new THREE.LineBasicMaterial({color:0xff6600})
   ));
 });
 
@@ -308,510 +295,421 @@ COVER.forEach(([w, h, d, x, y, z], i) => {
 //  WALL LOGOS & TEXT
 // ─────────────────────────────────────────────
 const texLoader = new THREE.TextureLoader();
-
-function wallPlane(url, w, h, x, y, z, ry) {
+function wallPlane(url,w,h,x,y,z,ry) {
   texLoader.load(url, tex => {
     tex.colorSpace = THREE.SRGBColorSpace;
-    const mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(w, h),
-      new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false })
-    );
-    mesh.position.set(x, y, z);
-    mesh.rotation.y = ry;
-    scene.add(mesh);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w,h),
+      new THREE.MeshBasicMaterial({map:tex, transparent:true, depthWrite:false}));
+    mesh.position.set(x,y,z); mesh.rotation.y=ry; scene.add(mesh);
   });
 }
+const OJO_LOGO = 'https://aws-origin.image-tech-storage.com/tenants/playojo/playojo.com/_nuxt/logo_en.BG7Z5U3Q.png';
+const UZU_LOGO = 'https://aws-origin.image-tech-storage.com/tenants/playuzu/playuzu.com/_nuxt/logo.C7q6Stlx.png';
+wallPlane(OJO_LOGO, 10,5,  0,   5.5,-39.3, 0);
+wallPlane(OJO_LOGO, 10,5,  0,   5.5, 39.3, Math.PI);
+wallPlane(UZU_LOGO, 10,5,  39.3,5.5,  0,  -Math.PI/2);
+wallPlane(UZU_LOGO, 10,5, -39.3,5.5,  0,   Math.PI/2);
 
-const OJO_LOGO  = 'https://aws-origin.image-tech-storage.com/tenants/playojo/playojo.com/_nuxt/logo_en.BG7Z5U3Q.png';
-const UZU_LOGO  = 'https://aws-origin.image-tech-storage.com/tenants/playuzu/playuzu.com/_nuxt/logo.C7q6Stlx.png';
-
-wallPlane(OJO_LOGO,  10, 5,  0,    5.5, -39.3,  0);
-wallPlane(OJO_LOGO,  10, 5,  0,    5.5,  39.3,  Math.PI);
-wallPlane(UZU_LOGO,  10, 5,  39.3, 5.5,  0,    -Math.PI / 2);
-wallPlane(UZU_LOGO,  10, 5, -39.3, 5.5,  0,     Math.PI / 2);
-
-// "PPC TEAM GAME" canvas text on each wall
-function makeTextTexture(text) {
-  const c = document.createElement('canvas');
-  c.width = 512; c.height = 112;
+function makeTextTex(text) {
+  const c = document.createElement('canvas'); c.width=512; c.height=112;
   const ctx = c.getContext('2d');
-  ctx.clearRect(0, 0, 512, 112);
-  ctx.font = 'bold 68px Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = '#ff9900';
-  ctx.shadowBlur = 18;
-  ctx.fillStyle = '#ff6600';
-  ctx.fillText(text, 256, 56);
+  ctx.clearRect(0,0,512,112);
+  ctx.font='bold 68px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.shadowColor='#ff9900'; ctx.shadowBlur=18; ctx.fillStyle='#ff6600';
+  ctx.fillText(text,256,56);
   return new THREE.CanvasTexture(c);
 }
-const txtTex = makeTextTexture('PPC TEAM GAME');
-function addWallText(x, y, z, ry) {
-  const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(12, 2.6),
-    new THREE.MeshBasicMaterial({ map: txtTex, transparent: true, depthWrite: false })
-  );
-  mesh.position.set(x, y, z); mesh.rotation.y = ry; scene.add(mesh);
+const txtTex = makeTextTex('PPC TEAM GAME');
+function addWallText(x,y,z,ry) {
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(12,2.6),
+    new THREE.MeshBasicMaterial({map:txtTex, transparent:true, depthWrite:false}));
+  mesh.position.set(x,y,z); mesh.rotation.y=ry; scene.add(mesh);
 }
-addWallText(  0,  2, -39.2,  0);
-addWallText(  0,  2,  39.2,  Math.PI);
-addWallText( 39.2, 2,  0,   -Math.PI / 2);
-addWallText(-39.2, 2,  0,    Math.PI / 2);
+addWallText(  0,2,-39.2, 0);       addWallText(  0,2, 39.2, Math.PI);
+addWallText( 39.2,2,  0,-Math.PI/2); addWallText(-39.2,2, 0,  Math.PI/2);
 
 // ─────────────────────────────────────────────
 //  LASER POOL
 // ─────────────────────────────────────────────
 const lasers = [];
-function spawnLaser(ox, oy, oz, dx, dy, dz, color) {
-  const geo = new THREE.CylinderGeometry(0.03, 0.03, 5, 5);
-  geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0, 2.5, 0));
-  geo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI / 2));
-  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color }));
-  mesh.position.set(ox, oy, oz);
-  mesh.lookAt(ox + dx, oy + dy, oz + dz);
+function spawnLaser(ox,oy,oz,dx,dy,dz,color) {
+  const geo = new THREE.CylinderGeometry(0.03,0.03,5,5);
+  geo.applyMatrix4(new THREE.Matrix4().makeTranslation(0,2.5,0));
+  geo.applyMatrix4(new THREE.Matrix4().makeRotationX(Math.PI/2));
+  const mesh = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({color}));
+  mesh.position.set(ox,oy,oz);
+  mesh.lookAt(ox+dx,oy+dy,oz+dz);
   scene.add(mesh);
-
-  const flash = new THREE.PointLight(color, 4, 5);
-  flash.position.set(ox, oy, oz); scene.add(flash);
-  setTimeout(() => scene.remove(flash), 70);
-
-  lasers.push({ mesh, dx, dy, dz, life: 0.22 });
+  const flash = new THREE.PointLight(color,4,5);
+  flash.position.set(ox,oy,oz); scene.add(flash);
+  setTimeout(()=>scene.remove(flash),70);
+  lasers.push({mesh,dx,dy,dz,life:0.22});
 }
 
 // ─────────────────────────────────────────────
-//  NAME LABELS (canvas sprites above heads)
+//  PLAYER MESHES  (single definition)
 // ─────────────────────────────────────────────
-const nameLabels = {};
+const playerMeshes = {};
 
-function makeNameLabel(name, team) {
-  const c = document.createElement('canvas');
-  c.width = 256; c.height = 64;
+function makeNameSprite(name, team) {
+  const c = document.createElement('canvas'); c.width=256; c.height=64;
   const ctx = c.getContext('2d');
-  ctx.clearRect(0, 0, 256, 64);
-  ctx.font = 'bold 36px Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.shadowColor = '#000'; ctx.shadowBlur = 6;
-  ctx.fillStyle = team === 'OJO' ? '#ff9900' : '#66aaff';
-  ctx.fillText(name, 128, 32);
+  ctx.clearRect(0,0,256,64);
+  ctx.font='bold 34px Arial'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.shadowColor='#000'; ctx.shadowBlur=6;
+  ctx.fillStyle = team==='OJO' ? '#ffaa00' : '#66aaff';
+  ctx.fillText(name||'?', 128, 32);
   const tex = new THREE.CanvasTexture(c);
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
-  const sprite = new THREE.Sprite(mat);
-  sprite.scale.set(2, 0.5, 1);
-  return sprite;
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false}));
+  spr.scale.set(2.2,0.55,1);
+  return spr;
 }
 
 function makePlayerMesh(team, name) {
-  const g = new THREE.Group();
-  const col = team === 'OJO' ? 0xff6600 : 0x0066ff;
-  const em  = team === 'OJO' ? 0xff3300 : 0x003399;
-  const bm  = new THREE.MeshStandardMaterial({ color: col, emissive: em, emissiveIntensity: 0.5 });
-  const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1, 0.4), bm);
-  body.position.y = 0.5; g.add(body);
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45),
-    new THREE.MeshStandardMaterial({ color: 0xffcc99 }));
-  head.position.y = 1.25; g.add(head);
-  const gun = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.55),
-    new THREE.MeshStandardMaterial({ color: 0x333333, emissive: 0x555555, emissiveIntensity: 0.4 }));
-  gun.position.set(0.35, 1, -0.38); g.add(gun);
+  const g   = new THREE.Group();
+  const col = team==='OJO' ? 0xff6600 : 0x0066ff;
+  const em  = team==='OJO' ? 0xff3300 : 0x003399;
+  const bm  = new THREE.MeshStandardMaterial({color:col,emissive:em,emissiveIntensity:0.5});
 
-  // Name label
-  const label = makeNameLabel(name || '?', team);
-  label.position.set(0, 2.1, 0);
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.6,1,0.4),bm);
+  body.position.y=0.5; g.add(body);
+
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.45,0.45,0.45),
+    new THREE.MeshStandardMaterial({color:0xffcc99}));
+  head.position.y=1.25; g.add(head);
+
+  const gun = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.1,0.55),
+    new THREE.MeshStandardMaterial({color:0x333333,emissive:0x555555,emissiveIntensity:0.4}));
+  gun.position.set(0.35,1,-0.38); g.add(gun);
+
+  const label = makeNameSprite(name||'?', team);
+  label.position.set(0,2.1,0);
   g.add(label);
 
-  scene.add(g); return g;
+  scene.add(g);
+  return g;
 }
 
 // ─────────────────────────────────────────────
 //  COLLISION
 // ─────────────────────────────────────────────
-function overlaps(x, y, z, c) {
-  const fy = y - P_HEIGHT;
-  return x + P_RADIUS > c.minX && x - P_RADIUS < c.maxX
-      && fy            < c.maxY && fy + P_HEIGHT > c.minY
-      && z + P_RADIUS > c.minZ && z - P_RADIUS < c.maxZ;
+function overlaps(x,y,z,c) {
+  const fy=y-P_HEIGHT;
+  return x+P_RADIUS>c.minX && x-P_RADIUS<c.maxX
+      && fy<c.maxY && fy+P_HEIGHT>c.minY
+      && z+P_RADIUS>c.minZ && z-P_RADIUS<c.maxZ;
 }
-function moveAndSlide(pos, dx, dy, dz) {
-  // X axis
-  const nx = pos.x + dx;
-  if (!colliders.some(c => overlaps(nx, pos.y, pos.z, c))) pos.x = nx;
-  else velocity.x = 0;
-  // Z axis
-  const nz = pos.z + dz;
-  if (!colliders.some(c => overlaps(pos.x, pos.y, nz, c))) pos.z = nz;
-  else velocity.z = 0;
-  // Y axis
-  const ny = pos.y + dy;
-  if (!colliders.some(c => overlaps(pos.x, ny, pos.z, c))) {
-    pos.y = ny;
-  } else {
-    if (velocity.y < 0) onGround = true;
-    velocity.y = 0;
-  }
+function moveAndSlide(pos,dx,dy,dz) {
+  const nx=pos.x+dx;
+  if (!colliders.some(c=>overlaps(nx,pos.y,pos.z,c))) pos.x=nx; else velocity.x=0;
+  const nz=pos.z+dz;
+  if (!colliders.some(c=>overlaps(pos.x,pos.y,nz,c))) pos.z=nz; else velocity.z=0;
+  const ny=pos.y+dy;
+  if (!colliders.some(c=>overlaps(pos.x,ny,pos.z,c))) pos.y=ny;
+  else { if(velocity.y<0)onGround=true; velocity.y=0; }
 }
-
-// Ray vs AABB — returns hit distance or Infinity
-function rayBox(ox, oy, oz, dx, dy, dz, c) {
-  const eps = 1e-8;
-  const inv = v => 1 / (Math.abs(v) < eps ? eps : v);
-  const ix = inv(dx), iy = inv(dy), iz = inv(dz);
-  const tx1 = (c.minX - ox) * ix, tx2 = (c.maxX - ox) * ix;
-  const ty1 = (c.minY - oy) * iy, ty2 = (c.maxY - oy) * iy;
-  const tz1 = (c.minZ - oz) * iz, tz2 = (c.maxZ - oz) * iz;
-  const tmin = Math.max(Math.min(tx1,tx2), Math.min(ty1,ty2), Math.min(tz1,tz2));
-  const tmax = Math.min(Math.max(tx1,tx2), Math.max(ty1,ty2), Math.max(tz1,tz2));
-  return (tmax >= 0 && tmin <= tmax) ? Math.max(0, tmin) : Infinity;
+function rayBox(ox,oy,oz,dx,dy,dz,c) {
+  const e=1e-8, ix=1/(Math.abs(dx)<e?e:dx), iy=1/(Math.abs(dy)<e?e:dy), iz=1/(Math.abs(dz)<e?e:dz);
+  const tx1=(c.minX-ox)*ix, tx2=(c.maxX-ox)*ix;
+  const ty1=(c.minY-oy)*iy, ty2=(c.maxY-oy)*iy;
+  const tz1=(c.minZ-oz)*iz, tz2=(c.maxZ-oz)*iz;
+  const tmin=Math.max(Math.min(tx1,tx2),Math.min(ty1,ty2),Math.min(tz1,tz2));
+  const tmax=Math.min(Math.max(tx1,tx2),Math.max(ty1,ty2),Math.max(tz1,tz2));
+  return (tmax>=0&&tmin<=tmax)?Math.max(0,tmin):Infinity;
 }
-function nearestBoxHit(ox, oy, oz, dx, dy, dz) {
-  let t = Infinity;
-  colliders.forEach(c => { const h = rayBox(ox, oy, oz, dx, dy, dz, c); if (h < t) t = h; });
+function nearestBoxHit(ox,oy,oz,dx,dy,dz) {
+  let t=Infinity;
+  colliders.forEach(c=>{const h=rayBox(ox,oy,oz,dx,dy,dz,c);if(h<t)t=h;});
   return t;
 }
 
 // ─────────────────────────────────────────────
-//  INPUT — only raw collection here
+//  INPUT
 // ─────────────────────────────────────────────
-const keys = {};
-document.addEventListener('keydown', e => {
-  keys[e.code] = true;
-  if (!inGame) return;
-  if (e.code === 'KeyR') socket.emit('reload');
-  if (e.code === 'Digit1') doSwitchWeapon('rifle');
-  if (e.code === 'Digit2') doSwitchWeapon('pistol');
-  if (e.code === 'Digit3') doSwitchWeapon('sniper');
-  if (e.code === 'Tab') { e.preventDefault(); showSB(true); }
-  if (e.code === 'Space' && onGround && alive) { velocity.y = JUMP_V; onGround = false; }
+const keys={};
+document.addEventListener('keydown',e=>{
+  keys[e.code]=true;
+  if(!inGame)return;
+  if(e.code==='KeyR')socket.emit('reload');
+  if(e.code==='Digit1')doSwitch('rifle');
+  if(e.code==='Digit2')doSwitch('pistol');
+  if(e.code==='Digit3')doSwitch('sniper');
+  if(e.code==='Tab'){e.preventDefault();showSB(true);}
+  if(e.code==='Space'&&onGround&&alive){velocity.y=JUMP_V;onGround=false;}
 });
-document.addEventListener('keyup', e => {
-  keys[e.code] = false;
-  if (e.code === 'Tab') showSB(false);
+document.addEventListener('keyup',e=>{
+  keys[e.code]=false;
+  if(e.code==='Tab')showSB(false);
 });
-document.addEventListener('mousedown', e => { if (e.button === 0) shooting = true; });
-document.addEventListener('mouseup',   e => { if (e.button === 0) shooting = false; });
-document.addEventListener('mousemove', e => {
-  if (!pointerLocked || !inGame || !alive) return;
-  yaw   -= e.movementX * 0.002;
-  pitch -= e.movementY * 0.002;
-  pitch  = Math.max(-Math.PI / 2.3, Math.min(Math.PI / 2.3, pitch));
+document.addEventListener('mousedown',e=>{if(e.button===0)shooting=true;});
+document.addEventListener('mouseup',  e=>{if(e.button===0)shooting=false;});
+document.addEventListener('mousemove',e=>{
+  if(!pointerLocked||!inGame||!alive)return;
+  yaw  -=e.movementX*.002;
+  pitch-=e.movementY*.002;
+  pitch=Math.max(-Math.PI/2.3,Math.min(Math.PI/2.3,pitch));
 });
 
-// ─────────────────────────────────────────────
-//  POINTER LOCK — only available after join
-// ─────────────────────────────────────────────
-function tryLock() {
-  if (!inGame) return;
-  canvas.requestPointerLock();
+function tryLock(){if(!inGame)return;canvas.requestPointerLock();}
+canvas.addEventListener('click',tryLock);
+document.getElementById('lockPrompt').addEventListener('click',tryLock);
+document.addEventListener('pointerlockchange',()=>{
+  pointerLocked=document.pointerLockElement===canvas;
+  if(inGame) document.getElementById('lockPrompt').style.display=(pointerLocked||!alive)?'none':'flex';
+});
+document.addEventListener('pointerlockerror',()=>setTimeout(tryLock,600));
+
+function doSwitch(w){
+  currentWeapon=w;
+  socket.emit('switchWeapon',{weapon:w});
+  document.querySelectorAll('.wbtn').forEach(b=>b.classList.toggle('active',b.dataset.w===w));
+  document.getElementById('weaponName').textContent=WEAPON_LABEL[w];
 }
-canvas.addEventListener('click', tryLock);
-document.getElementById('lockPrompt').addEventListener('click', tryLock);
-
-document.addEventListener('pointerlockchange', () => {
-  pointerLocked = document.pointerLockElement === canvas;
-  if (inGame) {
-    document.getElementById('lockPrompt').style.display = (pointerLocked || !alive) ? 'none' : 'flex';
-  }
-});
-document.addEventListener('pointerlockerror', () => setTimeout(tryLock, 600));
+document.querySelectorAll('.wbtn').forEach(b=>b.addEventListener('click',()=>doSwitch(b.dataset.w)));
 
 // ─────────────────────────────────────────────
-//  WEAPON SWITCH
+//  SOCKET EVENTS
 // ─────────────────────────────────────────────
-function doSwitchWeapon(w) {
-  currentWeapon = w;
-  socket.emit('switchWeapon', { weapon: w });
-  document.querySelectorAll('.wbtn').forEach(b => b.classList.toggle('active', b.dataset.w === w));
-  document.getElementById('weaponName').textContent = WEAPON_LABEL[w];
-}
-document.querySelectorAll('.wbtn').forEach(b => b.addEventListener('click', () => doSwitchWeapon(b.dataset.w)));
+socket.on('connect_error',()=>alert('Cannot connect to server. Make sure server.js is running.'));
+socket.on('connect',()=>console.log('Socket connected:',socket.id));
 
-// ─────────────────────────────────────────────
-//  SOCKET
-// ─────────────────────────────────────────────
-socket.on('connect_error', () => {
-  alert('Cannot connect to server. Make sure server.js is running.');
-});
-
-socket.on('joined', data => {
+socket.on('joined',data=>{
   myId   = data.id;
   myTeam = data.player.team;
-  camera.position.set(data.player.x, data.player.y + 1.7, data.player.z);
-
-  // Sync ammo display
+  camera.position.set(data.player.x, data.player.y+1.7, data.player.z);
   document.getElementById('ammoMain').textContent    = data.player.ammo;
-  document.getElementById('ammoReserve').textContent = '/ ' + data.player.reserve;
-
-  // Show in-game UI
+  document.getElementById('ammoReserve').textContent = '/ '+data.player.reserve;
   document.getElementById('lobby').style.display = 'none';
   document.getElementById('hud').style.display   = 'block';
-
-  const badge = document.getElementById('teamBadge');
-  badge.textContent  = 'TEAM ' + myTeam;
-  badge.className    = 'team-' + myTeam;
-
-  if (data.roundActive) setTimer(data.roundTimer);
-
-  // Mark as in-game LAST so nothing fires prematurely
-  inGame = true;
-
-  // Show lock prompt now
-  document.getElementById('lockPrompt').style.display = 'flex';
+  const badge=document.getElementById('teamBadge');
+  badge.textContent='TEAM '+myTeam; badge.className='team-'+myTeam;
+  if(data.roundActive)setTimer(data.roundTimer);
+  inGame=true;   // set last
+  document.getElementById('lockPrompt').style.display='flex';
 });
 
-socket.on('playerList', players => {
-  remotePlayers = players;
-  Object.entries(players).forEach(([id, p]) => {
-    if (id === myId) return;
-    if (!playerMeshes[id]) playerMeshes[id] = makePlayerMesh(p.team);
+socket.on('playerList',data=>{
+  remotePlayers=data;
+  // Create or update meshes for every remote player
+  Object.entries(data).forEach(([id,p])=>{
+    if(id===myId)return;
+    if(!playerMeshes[id]){
+      playerMeshes[id]=makePlayerMesh(p.team, p.name);
+    }
     playerMeshes[id].position.set(p.x, p.y, p.z);
-    playerMeshes[id].visible = p.alive;
+    playerMeshes[id].rotation.y=p.rotY||0;
+    playerMeshes[id].visible=p.alive;
   });
-  Object.keys(playerMeshes).forEach(id => {
-    if (!players[id]) { scene.remove(playerMeshes[id]); delete playerMeshes[id]; }
+  // Remove meshes for players who left
+  Object.keys(playerMeshes).forEach(id=>{
+    if(!data[id]){scene.remove(playerMeshes[id]);delete playerMeshes[id];}
   });
 });
 
-socket.on('playerMoved', ({ id, x, y, z, rotY }) => {
-  if (id === myId || !playerMeshes[id]) return;
-  playerMeshes[id].position.set(x, y, z);
-  playerMeshes[id].rotation.y = rotY;
-  if (remotePlayers[id]) Object.assign(remotePlayers[id], { x, y, z });
+socket.on('playerMoved',({id,x,y,z,rotY})=>{
+  if(id===myId)return;
+  if(!playerMeshes[id]){
+    // Create mesh if we missed the playerList event
+    if(remotePlayers[id]) playerMeshes[id]=makePlayerMesh(remotePlayers[id].team, remotePlayers[id].name);
+    else return;
+  }
+  playerMeshes[id].position.set(x,y,z);
+  playerMeshes[id].rotation.y=rotY;
+  if(remotePlayers[id])Object.assign(remotePlayers[id],{x,y,z,rotY});
 });
 
-socket.on('playerShot', ({ id, x, y, z, dx, dy, dz, team }) => {
-  if (id === myId) return;
-  spawnLaser(x, y + 0.8, z, dx, dy, dz, team === 'OJO' ? 0xff4400 : 0x4488ff);
+socket.on('playerShot',({id,x,y,z,dx,dy,dz,team})=>{
+  if(id===myId)return;
+  spawnLaser(x,y+0.8,z,dx,dy,dz,team==='OJO'?0xff4400:0x4488ff);
 });
 
-socket.on('playerHit', ({ id, health: hp }) => {
-  if (id === myId) setHealth(hp);
-  if (remotePlayers[id]) remotePlayers[id].health = hp;
-  const hm = document.getElementById('hitMarker');
-  hm.style.opacity = '1';
-  setTimeout(() => hm.style.opacity = '0', 140);
+socket.on('playerHit',({id,health:hp})=>{
+  if(id===myId)setHealth(hp);
+  if(remotePlayers[id])remotePlayers[id].health=hp;
+  const hm=document.getElementById('hitMarker');
+  hm.style.opacity='1'; setTimeout(()=>hm.style.opacity='0',140);
 });
 
-socket.on('playerKilled', ({ id, killerName, victimName, killFeed }) => {
-  if (id === myId) showDeath();
-  if (playerMeshes[id]) playerMeshes[id].visible = false;
+socket.on('playerKilled',({id,killFeed})=>{
+  if(id===myId)showDeath();
+  if(playerMeshes[id])playerMeshes[id].visible=false;
   drawKillFeed(killFeed);
 });
 
-socket.on('playerRespawned', ({ id, x, y, z }) => {
-  if (id === myId) {
-    alive = true;
-    camera.position.set(x, y + 1.7, z);
+socket.on('playerRespawned',({id,x,y,z})=>{
+  if(id===myId){
+    alive=true;
+    camera.position.set(x,y+1.7,z);
     setHealth(100);
-    document.getElementById('deathScreen').style.display = 'none';
-    document.getElementById('lockPrompt').style.display  = 'flex';
+    document.getElementById('deathScreen').style.display='none';
+    document.getElementById('lockPrompt').style.display='flex';
   }
-  if (playerMeshes[id]) { playerMeshes[id].position.set(x, y, z); playerMeshes[id].visible = true; }
+  if(playerMeshes[id]){playerMeshes[id].position.set(x,y,z);playerMeshes[id].visible=true;}
 });
 
-socket.on('roundStart', ({ players, scores }) => { remotePlayers = players; setScores(scores); });
-socket.on('roundEnd',   ({ winner, scores }) => {
-  setScores(scores);
-  flashMsg(winner === 'draw' ? 'ROUND DRAW' : 'TEAM ' + winner + ' WINS THE ROUND');
-});
-socket.on('matchOver', ({ winner }) => {
-  const el = document.getElementById('matchOver');
-  const r  = document.getElementById('matchResult');
-  r.textContent = winner === myTeam ? '🏆 YOUR TEAM WINS!' : '💀 DEFEATED';
-  r.style.color = winner === myTeam ? '#ff9900' : '#ff3300';
-  el.style.display = 'flex';
-  setTimeout(() => el.style.display = 'none', 8000);
+socket.on('roundStart',({players,scores})=>{remotePlayers=players;setScores(scores);});
+socket.on('roundEnd',  ({winner,scores})=>{setScores(scores);flashMsg(winner==='draw'?'ROUND DRAW':'TEAM '+winner+' WINS THE ROUND');});
+socket.on('matchOver', ({winner})=>{
+  const el=document.getElementById('matchOver');
+  document.getElementById('matchResult').textContent=winner===myTeam?'🏆 YOUR TEAM WINS!':'💀 DEFEATED';
+  document.getElementById('matchResult').style.color=winner===myTeam?'#ff9900':'#ff3300';
+  el.style.display='flex'; setTimeout(()=>el.style.display='none',8000);
 });
 socket.on('timerUpdate', setTimer);
-socket.on('ammoUpdate', ({ ammo, reserve }) => {
+socket.on('ammoUpdate',({ammo,reserve})=>{
   document.getElementById('ammoMain').textContent    = ammo;
-  document.getElementById('ammoReserve').textContent = '/ ' + reserve;
+  document.getElementById('ammoReserve').textContent = '/ '+reserve;
 });
-socket.on('scoreUpdate', p => { remotePlayers = p; });
-socket.on('noAmmo', () => {
-  const el = document.getElementById('weaponName');
-  el.textContent = '--- RELOAD (R) ---';
-  setTimeout(() => el.textContent = WEAPON_LABEL[currentWeapon], 1400);
+socket.on('scoreUpdate',p=>{remotePlayers=p;});
+socket.on('noAmmo',()=>{
+  const el=document.getElementById('weaponName');
+  el.textContent='--- RELOAD (R) ---';
+  setTimeout(()=>el.textContent=WEAPON_LABEL[currentWeapon],1400);
 });
-socket.on('serverFull', () => alert('Server is full (8 players max). Try again later.'));
+socket.on('serverFull',()=>alert('Server is full (8 players max).'));
 
 // ─────────────────────────────────────────────
 //  UI HELPERS
 // ─────────────────────────────────────────────
-function setHealth(hp) {
-  health = Math.max(0, hp);
-  document.getElementById('healthFill').style.width = health + '%';
-  document.getElementById('healthNum').textContent  = health;
+function setHealth(hp){
+  health=Math.max(0,hp);
+  document.getElementById('healthFill').style.width=health+'%';
+  document.getElementById('healthNum').textContent=health;
 }
-function showDeath() {
-  alive = false;
-  pointerLocked = false;
-  document.getElementById('deathScreen').style.display = 'flex';
-  document.getElementById('lockPrompt').style.display  = 'none';
-  let t = 5;
-  document.getElementById('respawnTimer').textContent = 'Respawning in ' + t + '...';
-  const iv = setInterval(() => {
+function showDeath(){
+  alive=false; pointerLocked=false;
+  document.getElementById('deathScreen').style.display='flex';
+  document.getElementById('lockPrompt').style.display='none';
+  let t=5;
+  document.getElementById('respawnTimer').textContent='Respawning in 5...';
+  const iv=setInterval(()=>{
     t--;
-    document.getElementById('respawnTimer').textContent = t > 0
-      ? 'Respawning in ' + t + '...'
-      : 'RESPAWNING...';
-    if (t <= 0) clearInterval(iv);
-  }, 1000);
+    document.getElementById('respawnTimer').textContent=
+      t>0?'Respawning in '+t+'...':'RESPAWNING...';
+    if(t<=0)clearInterval(iv);
+  },1000);
 }
-function setTimer(sec) {
-  const m = Math.floor(sec / 60), s = sec % 60;
-  document.getElementById('timerBox').textContent = m + ':' + String(s).padStart(2, '0');
+function setTimer(sec){
+  document.getElementById('timerBox').textContent=
+    Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');
 }
-function setScores(sc) {
+function setScores(sc){
   document.getElementById('sOJO').textContent    = sc.OJO;
   document.getElementById('sSTRIKE').textContent = sc.STRIKE;
 }
-function drawKillFeed(kf) {
-  document.getElementById('killfeed').innerHTML = kf.slice(0, 5).map(k =>
-    '<div class="kfe"><span class="kfk">' + k.killer + '</span>' +
-    '<span class="kfg"> [' + k.weapon + '] </span>' +
-    '<span class="kfv">' + k.victim + '</span></div>'
+function drawKillFeed(kf){
+  document.getElementById('killfeed').innerHTML=kf.slice(0,5).map(k=>
+    '<div class="kfe"><span class="kfk">'+k.killer+'</span>'+
+    '<span class="kfg"> ['+k.weapon+'] </span>'+
+    '<span class="kfv">'+k.victim+'</span></div>'
   ).join('');
 }
-function showSB(on) {
-  const sb = document.getElementById('scoreboard');
-  if (on) {
+function showSB(on){
+  const sb=document.getElementById('scoreboard');
+  if(on){
     sb.classList.add('show');
-    const rows = Object.values(remotePlayers).sort((a, b) => b.kills - a.kills).map(p => {
-      const kd = p.deaths ? (p.kills / p.deaths).toFixed(2) : p.kills.toFixed(2);
-      return '<tr class="sb' + (p.team === 'OJO' ? 'o' : 's') + '">' +
-        '<td>' + p.name + (p.id === myId ? ' ★' : '') + '</td>' +
-        '<td>' + p.team + '</td><td>' + p.kills + '</td><td>' + p.deaths + '</td><td>' + kd + '</td></tr>';
-    });
-    document.getElementById('sbBody').innerHTML = rows.join('');
+    document.getElementById('sbBody').innerHTML=
+      Object.values(remotePlayers).sort((a,b)=>b.kills-a.kills).map(p=>{
+        const kd=p.deaths?(p.kills/p.deaths).toFixed(2):p.kills.toFixed(2);
+        return '<tr class="sb'+(p.team==='OJO'?'o':'s')+'">'+
+          '<td>'+p.name+(p.id===myId?' ★':'')+'</td>'+
+          '<td>'+p.team+'</td><td>'+p.kills+'</td><td>'+p.deaths+'</td><td>'+kd+'</td></tr>';
+      }).join('');
   } else sb.classList.remove('show');
 }
-function flashMsg(text) {
-  const el = document.createElement('div');
-  el.style.cssText = 'position:fixed;top:38%;left:50%;transform:translate(-50%,-50%);' +
-    'font-size:1.9rem;font-weight:900;color:#ff9900;text-shadow:0 0 18px #ff660099;' +
+function flashMsg(text){
+  const el=document.createElement('div');
+  el.style.cssText='position:fixed;top:38%;left:50%;transform:translate(-50%,-50%);'+
+    'font-size:1.9rem;font-weight:900;color:#ff9900;text-shadow:0 0 18px #ff660099;'+
     'z-index:40;pointer-events:none;letter-spacing:4px';
-  el.textContent = text;
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 2800);
+  el.textContent=text; document.body.appendChild(el);
+  setTimeout(()=>el.remove(),2800);
 }
 
 // ─────────────────────────────────────────────
 //  GAME LOOP
 // ─────────────────────────────────────────────
-const clock  = new THREE.Clock();
-const euler  = new THREE.Euler(0, 0, 0, 'YXZ');
-const fwd    = new THREE.Vector3();
-const right  = new THREE.Vector3();
-const moveD  = new THREE.Vector3();
+const clock = new THREE.Clock();
+const euler = new THREE.Euler(0,0,0,'YXZ');
+const fwd   = new THREE.Vector3();
+const right = new THREE.Vector3();
+const moveD = new THREE.Vector3();
 
-function tick(dt) {
-  // Always update lasers regardless of game state
-  for (let i = lasers.length - 1; i >= 0; i--) {
-    const l = lasers[i];
-    l.life -= dt;
-    l.mesh.position.x += l.dx * 22 * dt;
-    l.mesh.position.y += l.dy * 22 * dt;
-    l.mesh.position.z += l.dz * 22 * dt;
-    if (l.life <= 0) { scene.remove(l.mesh); lasers.splice(i, 1); }
+function tick(dt){
+  // Lasers always update
+  for(let i=lasers.length-1;i>=0;i--){
+    const l=lasers[i]; l.life-=dt;
+    l.mesh.position.x+=l.dx*22*dt;
+    l.mesh.position.y+=l.dy*22*dt;
+    l.mesh.position.z+=l.dz*22*dt;
+    if(l.life<=0){scene.remove(l.mesh);lasers.splice(i,1);}
+  }
+  if(!inGame||!alive)return;
+
+  velocity.y+=GRAVITY*dt;
+
+  const spd=(keys['ShiftLeft']||keys['ShiftRight'])?RUN:WALK;
+  fwd.set(-Math.sin(yaw),0,-Math.cos(yaw));
+  right.set(Math.cos(yaw),0,-Math.sin(yaw));
+  moveD.set(0,0,0);
+  if(keys['KeyW'])moveD.add(fwd);  if(keys['KeyS'])moveD.sub(fwd);
+  if(keys['KeyA'])moveD.sub(right);if(keys['KeyD'])moveD.add(right);
+  if(moveD.lengthSq()>0)moveD.normalize();
+  velocity.x=moveD.x*spd; velocity.z=moveD.z*spd;
+
+  moveAndSlide(camera.position,velocity.x*dt,velocity.y*dt,velocity.z*dt);
+
+  if(camera.position.y<1.7){camera.position.y=1.7;velocity.y=0;onGround=true;}
+  camera.position.x=Math.max(-39,Math.min(39,camera.position.x));
+  camera.position.z=Math.max(-39,Math.min(39,camera.position.z));
+
+  euler.set(pitch,yaw,0); camera.quaternion.setFromEuler(euler);
+
+  sendTimer+=dt;
+  if(sendTimer>=0.05){
+    sendTimer=0;
+    socket.emit('move',{x:camera.position.x,y:camera.position.y-1.7,z:camera.position.z,rotY:yaw});
   }
 
-  if (!inGame || !alive) return;
-
-  // Gravity
-  velocity.y += GRAVITY * dt;
-
-  // Horizontal movement
-  const spd = (keys['ShiftLeft'] || keys['ShiftRight']) ? RUN : WALK;
-  fwd.set(-Math.sin(yaw), 0, -Math.cos(yaw));
-  right.set(Math.cos(yaw), 0, -Math.sin(yaw));
-  moveD.set(0, 0, 0);
-  if (keys['KeyW']) moveD.add(fwd);
-  if (keys['KeyS']) moveD.sub(fwd);
-  if (keys['KeyA']) moveD.sub(right);
-  if (keys['KeyD']) moveD.add(right);
-  if (moveD.lengthSq() > 0) moveD.normalize();
-  velocity.x = moveD.x * spd;
-  velocity.z = moveD.z * spd;
-
-  moveAndSlide(camera.position, velocity.x * dt, velocity.y * dt, velocity.z * dt);
-
-  // Hard floor
-  if (camera.position.y < 1.7) { camera.position.y = 1.7; velocity.y = 0; onGround = true; }
-  camera.position.x = Math.max(-39, Math.min(39, camera.position.x));
-  camera.position.z = Math.max(-39, Math.min(39, camera.position.z));
-
-  // Camera rotation
-  euler.set(pitch, yaw, 0);
-  camera.quaternion.setFromEuler(euler);
-
-  // Broadcast position
-  sendTimer += dt;
-  if (sendTimer >= 0.05) {
-    sendTimer = 0;
-    socket.emit('move', {
-      x: camera.position.x,
-      y: camera.position.y - 1.7,
-      z: camera.position.z,
-      rotY: yaw
-    });
-  }
-
-  // Shooting
-  if (shooting && pointerLocked) {
-    const now = Date.now();
-    if (now - lastShotTime >= WEAPON_RATE[currentWeapon]) {
-      lastShotTime = now;
-
-      euler.set(pitch, yaw, 0);
-      const dir = new THREE.Vector3(0, 0, -1).applyEuler(euler).normalize();
-      const ox = camera.position.x;
-      const oy = camera.position.y - 0.3;
-      const oz = camera.position.z;
-
-      // Spawn laser from our gun
-      spawnLaser(ox, oy, oz, dir.x, dir.y, dir.z, WEAPON_COLOR[currentWeapon]);
-
-      // Send to server (server handles box occlusion + hit detection)
-      socket.emit('shoot', { dirX: dir.x, dirY: dir.y, dirZ: dir.z });
-
-      // Semi-auto: require new mousedown
-      if (currentWeapon !== 'rifle') shooting = false;
+  if(shooting&&pointerLocked){
+    const now=Date.now();
+    if(now-lastShotTime>=WEAPON_RATE[currentWeapon]){
+      lastShotTime=now;
+      euler.set(pitch,yaw,0);
+      const dir=new THREE.Vector3(0,0,-1).applyEuler(euler).normalize();
+      const ox=camera.position.x, oy=camera.position.y-0.3, oz=camera.position.z;
+      spawnLaser(ox,oy,oz,dir.x,dir.y,dir.z,WEAPON_COLOR[currentWeapon]);
+      socket.emit('shoot',{dirX:dir.x,dirY:dir.y,dirZ:dir.z});
+      if(currentWeapon!=='rifle')shooting=false;
     }
   }
 }
 
-function animate() {
+function animate(){
   requestAnimationFrame(animate);
-  tick(Math.min(clock.getDelta(), 0.05));
-  renderer.render(scene, camera);
+  tick(Math.min(clock.getDelta(),0.05));
+  renderer.render(scene,camera);
 }
 animate();
 
 // ─────────────────────────────────────────────
-//  JOIN BUTTON
+//  JOIN
 // ─────────────────────────────────────────────
-document.getElementById('joinBtn').addEventListener('click', () => {
-  const name = document.getElementById('nameInput').value.trim() || 'OJO Player';
-  const btn = document.getElementById('joinBtn');
-  btn.disabled = true;
-  btn.textContent = 'CONNECTING...';
-
-  if (socket.connected) {
-    socket.emit('join', { name });
+document.getElementById('joinBtn').addEventListener('click',()=>{
+  const name    =document.getElementById('nameInput').value.trim()||'OJO Player';
+  const withBots=document.getElementById('botsCheck').checked;
+  const btn     =document.getElementById('joinBtn');
+  btn.disabled=true; btn.textContent='CONNECTING...';
+  if(socket.connected){
+    socket.emit('join',{name,withBots});
   } else {
-    // Wait for connection then join
-    socket.once('connect', () => socket.emit('join', { name }));
+    socket.once('connect',()=>socket.emit('join',{name,withBots}));
     socket.connect();
   }
 });
-document.getElementById('nameInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') document.getElementById('joinBtn').click();
+document.getElementById('nameInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter')document.getElementById('joinBtn').click();
 });
-
-// Debug — remove after testing
-socket.on('connect',    () => console.log('Socket connected:', socket.id));
-socket.on('disconnect', () => console.log('Socket disconnected'));
-socket.on('joined',     d  => console.log('Joined event received:', d));
 </script>
 </body>
 </html>
