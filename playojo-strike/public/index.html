@@ -168,6 +168,11 @@ canvas{display:block;width:100vw;height:100vh}
 <script src="/socket.io/socket.io.js"></script>
 <script>
 // ─────────────────────────────────────────────
+//  SOCKET — init first before anything else
+// ─────────────────────────────────────────────
+const socket = io({ autoConnect: true });
+
+// ─────────────────────────────────────────────
 //  STATE
 // ─────────────────────────────────────────────
 let myId = null, myTeam = null;
@@ -490,8 +495,6 @@ document.querySelectorAll('.wbtn').forEach(b => b.addEventListener('click', () =
 // ─────────────────────────────────────────────
 //  SOCKET
 // ─────────────────────────────────────────────
-const socket = io();
-
 socket.on('connect_error', () => {
   alert('Cannot connect to server. Make sure server.js is running.');
 });
@@ -752,13 +755,26 @@ animate();
 // ─────────────────────────────────────────────
 document.getElementById('joinBtn').addEventListener('click', () => {
   const name = document.getElementById('nameInput').value.trim() || 'OJO Player';
-  document.getElementById('joinBtn').disabled = true;
-  document.getElementById('joinBtn').textContent = 'CONNECTING...';
-  socket.emit('join', { name });
+  const btn = document.getElementById('joinBtn');
+  btn.disabled = true;
+  btn.textContent = 'CONNECTING...';
+
+  if (socket.connected) {
+    socket.emit('join', { name });
+  } else {
+    // Wait for connection then join
+    socket.once('connect', () => socket.emit('join', { name }));
+    socket.connect();
+  }
 });
 document.getElementById('nameInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('joinBtn').click();
 });
+
+// Debug — remove after testing
+socket.on('connect',    () => console.log('Socket connected:', socket.id));
+socket.on('disconnect', () => console.log('Socket disconnected'));
+socket.on('joined',     d  => console.log('Joined event received:', d));
 </script>
 </body>
 </html>
