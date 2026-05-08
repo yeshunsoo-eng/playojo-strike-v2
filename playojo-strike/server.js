@@ -168,7 +168,148 @@ function checkRoundOver() {
   else if (strikeAlive === 0) endRound('OJO');
 }
 
-// ── Socket.io ────────────────────────────────────────────
+// ── Bot config ───────────────────────────────────────────
+const BOT_COUNT     = 4;   // bots added when player requests them
+const BOT_SPEED     = 4;
+const BOT_SHOOT_RANGE = 20;
+const BOT_SHOOT_RATE  = 1200; // ms between shots
+let   botInterval   = null;
+
+function makeBotId() { return 'bot_' + Math.random().toString(36).slice(2, 7); }
+
+function addBots() {
+  for (let i = 0; i < BOT_COUNT; i++) {
+    const id   = makeBotId();
+    const team = assignTeam();
+    const sp   = randSpawn(team);
+    players[id] = {
+      id, name: 'BOT', team,
+      health: 100, alive: true,
+      x: sp.x, y: sp.y, z: sp.z, rotY: 0,
+      kills: 0, deaths: 0,
+      weapon: 'rifle',
+      ammo:    WEAPONS.rifle.ammo,
+      reserve: WEAPONS.rifle.reserve,
+      lastShot: 0,
+      isBot: true,
+      targetX: sp.x, targetZ: sp.z,
+      moveTimer: 0
+    };
+  }
+  io.emit('playerList', allPublic());
+}
+
+function removeBots() {
+  Object.keys(players).forEach(id => { if (players[id].isBot) delete players[id]; });
+  io.emit('playerList', allPublic());
+}
+
+function tickBots() {
+  const botList = Object.values(players).filter(b => b.isBot && b.alive);
+  if (!botList.length) return;
+
+  const dt = 0.1; // called every 100ms
+
+  botList.forEach(bot => {
+    // Pick new random waypoint every few seconds
+    bot.moveTimer -= dt;
+    if (bot.moveTimer <= 0 || (Math.abs(bot.x - bot.targetX) < 1 && Math.abs(bot.z - bot.targetZ) < 1)) {
+      bot.targetX  = (Math.random() - 0.5) * 70;
+      bot.targetZ  = (Math.random() - 0.5) * 70;
+      bot.moveTimer = 2 + Math.random() * 3;
+    }
+
+    // Move toward waypoint
+    const dx = bot.targetX - bot.x;
+    const dz = bot.targetZ - bot.z;
+    const dist = Math.sqrt(dx*dx + dz*dz);
+    if (dist > 0.5) {
+      bot.x += (dx / dist) * BOT_SPEED * dt;
+      bot.z += (dz / dist) * BOT_SPEED * dt;
+      bot.rotY = Math.atan2(dx, dz);
+    }
+
+    // Clamp to arena
+    bot.x = Math.max(-38, Math.min(38, bot.x));
+    bot.z = Math.max(-38, Math.min(38, bot.z));
+
+    // Find nearest enemy to shoot
+    const now = Date.now();
+    if (now - bot.lastShot >= BOT_SHOOT_RATE) {
+      const enemies = Object.values(players).filter(p =>
+        p.id !== bot.id && p.alive && p.team !== bot.team && !p.isBot
+      );
+      if (enemies.length) {
+        // Pick closest
+        let target = null, minD = Infinity;
+        enemies.forEach(e => {
+          const d = Math.hypot(e.x - bot.x, e.z - bot.z);
+          if (d < minD) { minD = d; target = e; }
+        });
+        if (target && minD < BOT_SHOOT_RANGE) {
+          bot.lastShot = now;
+          if (bot.ammo <= 0) {
+            bot.ammo = WEAPONS.rifle.ammo; // bots auto-reload
+          }
+
+          const ox = bot.x, oy = bot.y + 0.8, oz = bot.z;
+          const tdx = target.x - ox, tdy = (target.y + 0.8) - oy, tdz = target.z - oz;
+          const len = Math.sqrt(tdx*tdx + tdy*tdy + tdz*tdz);
+          const dirX = tdx/len, dirY = tdy/len, dirZ = tdz/len;
+
+          // Add some inaccuracy
+          const spread = 0.08;
+          const fDirX = dirX + (Math.random()-0.5)*spread;
+          const fDirY = dirY + (Math.random()-0.5)*spread*0.3;
+          const fDirZ = dirZ + (Math.random()-0.5)*spread;
+
+          bot.ammo--;
+
+          // Broadcast bot laser
+          io.emit('playerShot', { id: bot.id, team: bot.team, x: ox, y: bot.y, z: oz, dx: fDirX, dy: fDirY, dz: fDirZ });
+
+          // Check hit (simplified — no box occlusion for bots to keep it fair)
+          const boxDist = nearestBox(ox, oy, oz, fDirX, fDirY, fDirZ);
+          const ex = target.x - ox, ey = (target.y+0.8) - oy, ez = target.z - oz;
+          const dot = ex*fDirX + ey*fDirY + ez*fDirZ;
+          if (dot > 0 && dot < boxDist) {
+            const cx = ox+fDirX*dot - target.x;
+            const cy = oy+fDirY*dot - (target.y+0.8);
+            const cz = oz+fDirZ*dot - target.z;
+            if (cx*cx+cy*cy+cz*cz < 0.9) {
+              target.health -= WEAPONS.rifle.damage;
+              io.emit('playerHit', { id: target.id, health: target.health, shooterId: bot.id });
+              if (target.health <= 0) {
+                target.alive  = false;
+                target.deaths++;
+                bot.kills++;
+                killFeed.unshift({ killer: 'BOT', victim: target.name, weapon: 'rifle' });
+                if (killFeed.length > 5) killFeed.pop();
+                io.emit('playerKilled', { id: target.id, killerId: bot.id, killerName: 'BOT', victimName: target.name, killFeed });
+                io.emit('scoreUpdate', allPublic());
+                checkRoundOver();
+                const deadId = target.id;
+                setTimeout(() => {
+                  const dp = players[deadId];
+                  if (!dp) return;
+                  const sp = randSpawn(dp.team);
+                  dp.health = 100; dp.alive = true;
+                  dp.x = sp.x; dp.y = sp.y; dp.z = sp.z;
+                  io.emit('playerRespawned', { id: deadId, x: sp.x, y: sp.y, z: sp.z });
+                }, RESPAWN_WAIT * 1000);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Broadcast bot position
+    io.emit('playerMoved', { id: bot.id, x: bot.x, y: bot.y, z: bot.z, rotY: bot.rotY });
+  });
+}
+
+
 io.on('connection', socket => {
   console.log('Connected:', socket.id);
 
@@ -336,6 +477,12 @@ io.on('connection', socket => {
     const p = players[socket.id];
     if (p) console.log(p.name, 'disconnected');
     delete players[socket.id];
+    // If no humans left, remove bots and stop bot tick
+    const humans = Object.values(players).filter(p => !p.isBot);
+    if (humans.length === 0) {
+      removeBots();
+      if (botInterval) { clearInterval(botInterval); botInterval = null; }
+    }
     io.emit('playerList', allPublic());
     checkRoundOver();
   });
