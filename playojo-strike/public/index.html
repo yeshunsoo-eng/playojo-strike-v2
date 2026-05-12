@@ -25,49 +25,78 @@ body{background:#1a1a2e;color:#fff;font-family:'Segoe UI',sans-serif;overflow:hi
 .hint{margin-top:1.5rem;font-size:.78rem;color:#888;line-height:1.9;text-align:center}
 .hint b{color:#ff6600}
 
-#hud{position:fixed;inset:0;pointer-events:none;display:none;z-index:10}
-#crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:20px;height:20px}
-#crosshair::before,#crosshair::after{content:'';position:absolute;background:#ff6600;border-radius:2px}
-#crosshair::before{width:2px;height:100%;left:50%;transform:translateX(-50%)}
-#crosshair::after{width:100%;height:2px;top:50%;transform:translateY(-50%)}
+/* ── CS-style HUD ── */
+#hud{position:fixed;inset:0;pointer-events:none;display:none;z-index:10;font-family:'Segoe UI',Arial,sans-serif}
 
-#healthBar{position:absolute;bottom:40px;left:40px;display:flex;align-items:center;gap:10px}
-#healthTrack{width:160px;height:12px;background:#333;border-radius:6px;overflow:hidden;border:1px solid #555}
-#healthFill{height:100%;width:100%;background:linear-gradient(90deg,#ff3300,#ff6600);transition:.3s;border-radius:6px}
-#healthNum{font-size:.9rem;font-weight:700;color:#ff6600}
+/* Crosshair — CS dot style */
+#crosshair{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:14px;height:14px}
+#crosshair::before,#crosshair::after{content:'';position:absolute;background:#00ff88;opacity:.9}
+#crosshair::before{width:2px;height:14px;left:50%;transform:translateX(-50%)}
+#crosshair::after{width:14px;height:2px;top:50%;transform:translateY(-50%)}
+#crosshair-dot{position:absolute;top:50%;left:50%;width:3px;height:3px;
+  background:#00ff88;border-radius:50%;transform:translate(-50%,-50%)}
 
-#ammoBox{position:absolute;bottom:40px;right:40px;text-align:right}
-#ammoMain{font-size:2.4rem;font-weight:900;color:#ff6600;line-height:1}
-#ammoReserve{font-size:.95rem;color:#aaa}
-#weaponName{font-size:.72rem;letter-spacing:3px;color:#ff9900;text-transform:uppercase;margin-top:3px}
-
-#teamBadge{position:absolute;top:18px;left:50%;transform:translateX(-50%);
-  padding:5px 22px;border-radius:20px;font-weight:700;letter-spacing:3px;font-size:.82rem}
-.team-OJO{background:#ff660033;border:1px solid #ff6600;color:#ff9900}
-.team-STRIKE{background:#0066ff33;border:1px solid #0066ff;color:#66aaff}
-#timerBox{position:absolute;top:56px;left:50%;transform:translateX(-50%);
-  font-size:1.5rem;font-weight:900;color:#fff;text-shadow:0 0 10px #ff6600}
-
-#scorePanel{position:absolute;top:18px;left:18px;background:#00000077;border-radius:8px;
-  padding:9px 14px;border:1px solid #444}
-.sr{display:flex;justify-content:space-between;gap:14px;font-size:.82rem;margin-bottom:3px}
-.sr:last-child{margin-bottom:0}
-.so{color:#ff9900;font-weight:700}.ss{color:#66aaff;font-weight:700}
-.sn{font-size:1.05rem;font-weight:900}
-
-#killfeed{position:absolute;top:80px;right:18px;display:flex;flex-direction:column;gap:4px;align-items:flex-end}
-.kfe{background:#000000aa;padding:5px 10px;border-radius:4px;font-size:.76rem;
-  border-left:3px solid #ff6600;animation:kfFade 4s forwards}
-@keyframes kfFade{0%,70%{opacity:1}100%{opacity:0}}
-.kfk{color:#ff9900;font-weight:700}.kfv{color:#ddd}.kfg{color:#888;font-size:.68rem;margin:0 4px}
-
-#weaponBar{position:absolute;bottom:88px;right:40px;display:flex;gap:7px;pointer-events:all}
-.wbtn{padding:5px 11px;border-radius:4px;border:1px solid #555;background:#1a1a1a;
-  color:#888;font-size:.73rem;cursor:pointer;letter-spacing:1px}
-.wbtn.active{border-color:#ff6600;color:#ff9900;background:#ff660022}
-
+/* Hit marker */
 #hitMarker{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  color:#ff3300;font-size:1.4rem;opacity:0;font-weight:900}
+  opacity:0;font-size:1.1rem;color:#ff4444;font-weight:900;letter-spacing:1px}
+
+/* Top-center — round + timer block like CS */
+#topBar{position:absolute;top:0;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:0}
+#roundInfo{background:#00000099;border-bottom:2px solid #1a1a1a;
+  padding:4px 28px;font-size:.72rem;letter-spacing:3px;color:#aaa;text-transform:uppercase}
+#teamScoreBar{display:flex;align-items:stretch;gap:0}
+.tsTeam{padding:6px 20px;font-size:1.4rem;font-weight:900;letter-spacing:2px;min-width:60px;text-align:center}
+.ts-OJO{background:#c8a000;color:#fff}
+.ts-STRIKE{background:#3a6bc8;color:#fff}
+#timerBox{background:#111111dd;color:#fff;padding:6px 22px;font-size:1.4rem;
+  font-weight:900;letter-spacing:4px;min-width:80px;text-align:center}
+#teamBadge{background:#00000077;padding:3px 16px;font-size:.7rem;letter-spacing:3px;
+  color:#ccc;text-align:center;text-transform:uppercase}
+.team-OJO #teamBadge,.team-OJO{color:#ffcc00}
+.team-STRIKE #teamBadge,.team-STRIKE{color:#7aacff}
+
+/* Kill feed — top right CS style */
+#killfeed{position:absolute;top:12px;right:14px;display:flex;flex-direction:column;gap:3px;align-items:flex-end}
+.kfe{background:#00000088;padding:4px 10px;font-size:.75rem;display:flex;align-items:center;gap:6px;
+  border-left:2px solid #c8a000;animation:kfFade 5s forwards}
+.kfe.enemy-kill{border-left-color:#3a6bc8}
+@keyframes kfFade{0%,65%{opacity:1}100%{opacity:0}}
+.kfk{color:#ffcc44;font-weight:700}.kfv{color:#ccc}.kfg{color:#888;font-size:.68rem}
+.kfi{font-size:.8rem}
+
+/* Bottom-left — health + armour CS style */
+#bottomLeft{position:absolute;bottom:0;left:0;padding:14px 18px;
+  background:linear-gradient(to top,#000000cc,transparent);display:flex;flex-direction:column;gap:6px}
+#hpRow{display:flex;align-items:center;gap:10px}
+#hpIcon{font-size:1.1rem;color:#fff;font-weight:900;width:18px;text-align:center}
+#healthNum{font-size:2.2rem;font-weight:900;color:#fff;line-height:1;min-width:60px}
+#hpBar{width:120px;height:4px;background:#333;border-radius:2px;overflow:hidden}
+#hpFill{height:100%;background:#33cc55;transition:.25s;border-radius:2px}
+#armorRow{display:flex;align-items:center;gap:10px;opacity:.8}
+#armorIcon{font-size:.85rem;color:#aaa;width:18px;text-align:center}
+#armorNum{font-size:1rem;font-weight:700;color:#aaa}
+
+/* Bottom-right — weapon + ammo CS style */
+#bottomRight{position:absolute;bottom:0;right:0;padding:14px 20px;
+  background:linear-gradient(to top,#000000cc,transparent);text-align:right}
+#weaponIcon{font-size:.75rem;letter-spacing:3px;color:#aaa;text-transform:uppercase;margin-bottom:4px}
+#ammoRow{display:flex;align-items:baseline;justify-content:flex-end;gap:8px}
+#ammoMain{font-size:2.8rem;font-weight:900;color:#fff;line-height:1}
+#ammoSep{font-size:1.4rem;color:#555;font-weight:300}
+#ammoReserve{font-size:1.4rem;color:#888;font-weight:700}
+#weaponName{font-size:.7rem;letter-spacing:3px;color:#888;text-transform:uppercase;margin-top:2px}
+
+/* Bottom center — weapon switcher */
+#weaponBar{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+  display:flex;gap:6px;pointer-events:all}
+.wbtn{padding:5px 13px;border:1px solid #333;background:#111111bb;
+  color:#666;font-size:.72rem;cursor:pointer;letter-spacing:1px;border-radius:3px}
+.wbtn.active{border-color:#c8a000;color:#ffcc44;background:#c8a00022}
+
+/* Round score panel style */
+#scorePanel{display:none}
+
 
 #deathScreen{position:fixed;inset:0;display:none;align-items:center;justify-content:center;
   flex-direction:column;background:#00000099;z-index:50}
@@ -81,14 +110,28 @@ body{background:#1a1a2e;color:#fff;font-family:'Segoe UI',sans-serif;overflow:hi
 #matchOver button{margin-top:1.2rem;padding:11px 32px;background:#ff6600;border:none;
   border-radius:8px;color:#fff;font-size:.95rem;font-weight:700;cursor:pointer;letter-spacing:2px}
 
-#scoreboard{position:fixed;inset:0;background:#000000cc;display:none;z-index:30;
+#scoreboard{position:fixed;inset:0;background:#000000dd;display:none;z-index:30;
   align-items:center;justify-content:center;flex-direction:column}
 #scoreboard.show{display:flex}
-#sbTable{width:540px;border-collapse:collapse}
-#sbTable th{background:#ff660033;color:#ff9900;padding:7px 11px;font-size:.78rem;letter-spacing:2px}
-#sbTable td{padding:7px 11px;border-bottom:1px solid #333;font-size:.82rem;text-align:center}
-.sbo td:first-child{color:#ff9900}.sbs td:first-child{color:#66aaff}
-#sbTitle{font-size:1.4rem;font-weight:900;color:#ff6600;letter-spacing:4px;margin-bottom:.8rem}
+#sbWrap{width:660px;background:#111111;border:1px solid #333}
+#sbHeader{display:flex;justify-content:space-between;align-items:center;
+  background:#1a1a1a;padding:10px 18px;border-bottom:1px solid #333}
+#sbTitle{font-size:1rem;font-weight:700;color:#fff;letter-spacing:4px;text-transform:uppercase}
+#sbHint{font-size:.72rem;color:#555;letter-spacing:2px}
+#sbTable{width:100%;border-collapse:collapse}
+#sbTable th{background:#0a0a0a;color:#888;padding:7px 14px;font-size:.7rem;
+  letter-spacing:3px;text-transform:uppercase;text-align:left;border-bottom:1px solid #222}
+#sbTable th:not(:first-child){text-align:center}
+#sbTable td{padding:7px 14px;border-bottom:1px solid #1a1a1a;font-size:.82rem;color:#ccc}
+#sbTable td:not(:first-child){text-align:center}
+.sb-divider td{background:#0a0a0a;color:#888;font-size:.68rem;letter-spacing:3px;
+  text-transform:uppercase;padding:4px 14px}
+.sb-me td{background:#c8a00011}
+.sb-me td:first-child{color:#ffcc44;font-weight:700}
+.sb-ojo td:first-child{color:#ffcc44}
+.sb-str td:first-child{color:#7aacff}
+.sb-bot td:first-child{color:#888;font-style:italic}
+.kd-pos{color:#33cc55}.kd-neg{color:#cc4433}.kd-neu{color:#aaa}
 
 #lockPrompt{position:fixed;inset:0;background:#000000bb;display:none;
   align-items:center;justify-content:center;flex-direction:column;gap:.4rem;z-index:20}
@@ -118,30 +161,56 @@ canvas{display:block;width:100vw;height:100vh}
 </div>
 
 <div id="hud">
-  <div id="crosshair"></div>
-  <div id="hitMarker">+</div>
-  <div id="teamBadge"></div>
-  <div id="timerBox">-:--</div>
-  <div id="scorePanel">
-    <div class="sr"><span class="so">OJO</span><span class="sn so" id="sOJO">0</span></div>
-    <div class="sr"><span class="ss">STRIKE</span><span class="sn ss" id="sSTRIKE">0</span></div>
+  <div id="crosshair"><div id="crosshair-dot"></div></div>
+  <div id="hitMarker">✕ ✕</div>
+
+  <!-- Top center: OJO [score] TIMER [score] STRIKE -->
+  <div id="topBar">
+    <div id="roundInfo">Round <span id="roundNum">1</span></div>
+    <div id="teamScoreBar">
+      <div class="tsTeam ts-OJO" id="sOJO">0</div>
+      <div id="timerBox">0:00</div>
+      <div class="tsTeam ts-STRIKE" id="sSTRIKE">0</div>
+    </div>
+    <div id="teamBadge">TEAM <span id="myTeamLabel">—</span></div>
   </div>
+
+  <!-- Kill feed top right -->
   <div id="killfeed"></div>
-  <div id="healthBar">
-    <span>❤️</span>
-    <div id="healthTrack"><div id="healthFill"></div></div>
-    <span id="healthNum">100</span>
+
+  <!-- Bottom left: HP + armor -->
+  <div id="bottomLeft">
+    <div id="hpRow">
+      <span id="hpIcon">♥</span>
+      <span id="healthNum">100</span>
+      <div id="hpBar"><div id="hpFill"></div></div>
+    </div>
+    <div id="armorRow">
+      <span id="armorIcon">◈</span>
+      <span id="armorNum">100</span>
+    </div>
   </div>
-  <div id="ammoBox">
-    <div id="ammoMain">30</div>
-    <div id="ammoReserve">/ 90</div>
+
+  <!-- Bottom right: weapon + ammo -->
+  <div id="bottomRight">
+    <div id="weaponIcon">equipped</div>
+    <div id="ammoRow">
+      <span id="ammoMain">30</span>
+      <span id="ammoSep">|</span>
+      <span id="ammoReserve">90</span>
+    </div>
     <div id="weaponName">PLASMA RIFLE</div>
   </div>
+
+  <!-- Bottom center: weapon slots -->
   <div id="weaponBar">
     <div class="wbtn active" data-w="rifle">1 RIFLE</div>
     <div class="wbtn" data-w="pistol">2 PISTOL</div>
     <div class="wbtn" data-w="sniper">3 SNIPER</div>
   </div>
+
+  <!-- Hidden old panel (scores now in topBar) -->
+  <div id="scorePanel"></div>
 </div>
 
 <div id="lockPrompt">
@@ -162,11 +231,26 @@ canvas{display:block;width:100vw;height:100vh}
 </div>
 
 <div id="scoreboard">
-  <div id="sbTitle">SCOREBOARD</div>
-  <table id="sbTable">
-    <thead><tr><th>PLAYER</th><th>TEAM</th><th>KILLS</th><th>DEATHS</th><th>K/D</th></tr></thead>
-    <tbody id="sbBody"></tbody>
-  </table>
+  <div id="sbWrap">
+    <div id="sbHeader">
+      <span id="sbTitle">SCOREBOARD</span>
+      <span id="sbHint">TAB — HOLD TO VIEW</span>
+    </div>
+    <table id="sbTable">
+      <thead>
+        <tr>
+          <th>PLAYER</th>
+          <th>KILLS</th>
+          <th>DEATHS</th>
+          <th>ASSISTS</th>
+          <th>K/D</th>
+          <th>HS%</th>
+          <th>PING</th>
+        </tr>
+      </thead>
+      <tbody id="sbBody"></tbody>
+    </table>
+  </div>
 </div>
 
 <canvas id="c"></canvas>
@@ -193,7 +277,7 @@ let remotePlayers = {};
 let onGround = true;
 const velocity = { x:0, y:0, z:0 };
 let pitch = 0, yaw = 0;
-let sendTimer = 0;
+let roundNum = 1;
 
 const WEAPON_RATE  = { rifle:150, pistol:400, sniper:1200 };
 const WEAPON_COLOR = { rifle:0xff4400, pistol:0x44aaff, sniper:0x00ffcc };
@@ -459,13 +543,7 @@ document.addEventListener('pointerlockchange',()=>{
 });
 document.addEventListener('pointerlockerror',()=>setTimeout(tryLock,600));
 
-function doSwitch(w){
-  currentWeapon=w;
-  socket.emit('switchWeapon',{weapon:w});
-  document.querySelectorAll('.wbtn').forEach(b=>b.classList.toggle('active',b.dataset.w===w));
-  document.getElementById('weaponName').textContent=WEAPON_LABEL[w];
-}
-document.querySelectorAll('.wbtn').forEach(b=>b.addEventListener('click',()=>doSwitch(b.dataset.w)));
+document.querySelectorAll('.wbtn').forEach(b => b.addEventListener('click', () => doSwitch(b.dataset.w)));
 
 // ─────────────────────────────────────────────
 //  SOCKET EVENTS
@@ -571,59 +649,94 @@ socket.on('serverFull',()=>alert('Server is full (8 players max).'));
 // ─────────────────────────────────────────────
 //  UI HELPERS
 // ─────────────────────────────────────────────
-function setHealth(hp){
-  health=Math.max(0,hp);
-  document.getElementById('healthFill').style.width=health+'%';
-  document.getElementById('healthNum').textContent=health;
+function setHealth(hp) {
+  health = Math.max(0, hp);
+  document.getElementById('healthNum').textContent = health;
+  document.getElementById('hpFill').style.width    = health + '%';
+  document.getElementById('hpFill').style.background =
+    health > 60 ? '#33cc55' : health > 30 ? '#ddaa00' : '#cc3333';
 }
-function showDeath(){
-  alive=false; pointerLocked=false;
-  document.getElementById('deathScreen').style.display='flex';
-  document.getElementById('lockPrompt').style.display='none';
-  let t=5;
-  document.getElementById('respawnTimer').textContent='Respawning in 5...';
-  const iv=setInterval(()=>{
-    t--;
-    document.getElementById('respawnTimer').textContent=
-      t>0?'Respawning in '+t+'...':'RESPAWNING...';
-    if(t<=0)clearInterval(iv);
-  },1000);
+function setTimer(sec) {
+  const m = Math.floor(sec/60), s = sec % 60;
+  const el = document.getElementById('timerBox');
+  el.textContent = m + ':' + String(s).padStart(2,'0');
+  el.style.color = sec <= 10 ? '#ff4444' : '#fff';
 }
-function setTimer(sec){
-  document.getElementById('timerBox').textContent=
-    Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0');
-}
-function setScores(sc){
+function setScores(sc) {
   document.getElementById('sOJO').textContent    = sc.OJO;
   document.getElementById('sSTRIKE').textContent = sc.STRIKE;
 }
-function drawKillFeed(kf){
-  document.getElementById('killfeed').innerHTML=kf.slice(0,5).map(k=>
-    '<div class="kfe"><span class="kfk">'+k.killer+'</span>'+
-    '<span class="kfg"> ['+k.weapon+'] </span>'+
-    '<span class="kfv">'+k.victim+'</span></div>'
-  ).join('');
+function drawKillFeed(kf) {
+  document.getElementById('killfeed').innerHTML = kf.slice(0,5).map(k => {
+    const isEnemy = (k.killerTeam !== myTeam);
+    return '<div class="kfe'+(isEnemy?' enemy-kill':'')+'">'+
+      '<span class="kfk">'+k.killer+'</span>'+
+      '<span class="kfg"> ['+k.weapon+'] </span>'+
+      '<span class="kfv">'+k.victim+'</span></div>';
+  }).join('');
 }
-function showSB(on){
-  const sb=document.getElementById('scoreboard');
-  if(on){
+function doSwitch(w) {
+  currentWeapon = w;
+  socket.emit('switchWeapon', {weapon:w});
+  document.querySelectorAll('.wbtn').forEach(b => b.classList.toggle('active', b.dataset.w===w));
+  const labels = {rifle:'PLASMA RIFLE', pistol:'ION PISTOL', sniper:'VOID SNIPER'};
+  const icons  = {rifle:'PRIMARY', pistol:'SECONDARY', sniper:'SNIPER'};
+  document.getElementById('weaponName').textContent = labels[w];
+  document.getElementById('weaponIcon').textContent = icons[w];
+}
+function showSB(on) {
+  const sb = document.getElementById('scoreboard');
+  if (on) {
     sb.classList.add('show');
-    document.getElementById('sbBody').innerHTML=
-      Object.values(remotePlayers).sort((a,b)=>b.kills-a.kills).map(p=>{
-        const kd=p.deaths?(p.kills/p.deaths).toFixed(2):p.kills.toFixed(2);
-        return '<tr class="sb'+(p.team==='OJO'?'o':'s')+'">'+
-          '<td>'+p.name+(p.id===myId?' ★':'')+'</td>'+
-          '<td>'+p.team+'</td><td>'+p.kills+'</td><td>'+p.deaths+'</td><td>'+kd+'</td></tr>';
-      }).join('');
-  } else sb.classList.remove('show');
+    const allP = Object.values(remotePlayers).sort((a,b) => b.kills - a.kills);
+    const ojoP = allP.filter(p => p.team==='OJO');
+    const strP = allP.filter(p => p.team==='STRIKE');
+    function rowHtml(p) {
+      const kd   = p.deaths ? (p.kills/p.deaths).toFixed(2) : p.kills.toFixed(1);
+      const kdClass = parseFloat(kd)>=1 ? 'kd-pos' : 'kd-neg';
+      const cls  = p.id===myId ? 'sb-me' : p.name==='BOT' ? 'sb-bot' : (p.team==='OJO'?'sb-ojo':'sb-str');
+      const star = p.id===myId ? ' ★' : '';
+      const ping = p.isBot ? '—' : Math.floor(20+Math.random()*40);
+      const hs   = p.kills ? Math.floor(Math.random()*45+15)+'%' : '0%';
+      return '<tr class="'+cls+'">'+
+        '<td>'+p.name+star+'</td>'+
+        '<td>'+p.kills+'</td>'+
+        '<td>'+p.deaths+'</td>'+
+        '<td>'+(p.assists||0)+'</td>'+
+        '<td class="'+kdClass+'">'+kd+'</td>'+
+        '<td>'+hs+'</td>'+
+        '<td>'+ping+'</td>'+
+        '</tr>';
+    }
+    document.getElementById('sbBody').innerHTML =
+      '<tr class="sb-divider"><td colspan="7">— TEAM OJO —</td></tr>'+
+      ojoP.map(rowHtml).join('')+
+      '<tr class="sb-divider"><td colspan="7">— TEAM STRIKE —</td></tr>'+
+      strP.map(rowHtml).join('');
+  } else {
+    sb.classList.remove('show');
+  }
 }
-function flashMsg(text){
-  const el=document.createElement('div');
-  el.style.cssText='position:fixed;top:38%;left:50%;transform:translate(-50%,-50%);'+
-    'font-size:1.9rem;font-weight:900;color:#ff9900;text-shadow:0 0 18px #ff660099;'+
-    'z-index:40;pointer-events:none;letter-spacing:4px';
-  el.textContent=text; document.body.appendChild(el);
-  setTimeout(()=>el.remove(),2800);
+function showDeath() {
+  alive = false; pointerLocked = false;
+  document.getElementById('deathScreen').style.display = 'flex';
+  document.getElementById('lockPrompt').style.display  = 'none';
+  let t = 5;
+  document.getElementById('respawnTimer').textContent = 'Respawning in 5...';
+  const iv = setInterval(() => {
+    t--;
+    document.getElementById('respawnTimer').textContent =
+      t > 0 ? 'Respawning in ' + t + '...' : 'RESPAWNING...';
+    if (t <= 0) clearInterval(iv);
+  }, 1000);
+}
+function flashMsg(text) {
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;top:38%;left:50%;transform:translate(-50%,-50%);'+
+    'font-size:1.9rem;font-weight:900;color:#ffcc44;text-shadow:0 0 18px #c8a00099;'+
+    'z-index:40;pointer-events:none;letter-spacing:4px;font-family:Arial,sans-serif';
+  el.textContent = text; document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2800);
 }
 
 // ─────────────────────────────────────────────
