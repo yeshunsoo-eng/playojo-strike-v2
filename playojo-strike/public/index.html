@@ -419,9 +419,34 @@ function nearBox(ox,oy,oz,dx,dy,dz){
   let t=Infinity; COL.forEach(c=>{const h=rayBox(ox,oy,oz,dx,dy,dz,c);if(h<t)t=h;}); return t;
 }
 
-// ─────────────────────────────────────────────
-//  INPUT
-// ─────────────────────────────────────────────
+// Sniper scope state
+let scoped = false;
+const NORMAL_FOV = 75;
+const SCOPE_FOV  = 15;
+
+// Scope overlay styles injected once
+const scopeStyle = document.createElement('style');
+scopeStyle.textContent = `
+#scope-overlay{position:fixed;inset:0;display:none;z-index:15;pointer-events:none}
+#scope-overlay.on{display:block}
+#scope-ring{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:280px;height:280px;border-radius:50%;
+  border:3px solid #111;
+  box-shadow:0 0 0 9999px rgba(0,0,0,.88);
+  background:transparent}
+#scope-h{position:absolute;top:50%;left:0;right:0;height:1px;background:#33ff66;opacity:.7;transform:translateY(-50%)}
+#scope-v{position:absolute;left:50%;top:0;bottom:0;width:1px;background:#33ff66;opacity:.7;transform:translateX(-50%)}
+#scope-dot{position:absolute;top:50%;left:50%;width:4px;height:4px;border-radius:50%;
+  background:#33ff66;transform:translate(-50%,-50%);opacity:.9}
+#scope-label{position:absolute;bottom:30%;left:50%;transform:translateX(-50%);
+  font-size:.6rem;color:#33ff66;letter-spacing:3px;opacity:.6}
+`;
+document.head.appendChild(scopeStyle);
+
+const scopeEl = document.createElement('div');
+scopeEl.id = 'scope-overlay';
+scopeEl.innerHTML = '<div id="scope-ring"><div id="scope-h"></div><div id="scope-v"></div><div id="scope-dot"></div></div><div id="scope-label">VOID SNIPER × 8</div>';
+document.body.appendChild(scopeEl);
 const keys={};
 document.addEventListener('keydown',e=>{
   keys[e.code]=true;
@@ -434,8 +459,28 @@ document.addEventListener('keydown',e=>{
   if(e.code==='Space'&&onGround&&alive){vel.y=JV;onGround=false;}
 });
 document.addEventListener('keyup',e=>{ keys[e.code]=false; if(e.code==='Tab')showSB(false); });
-document.addEventListener('mousedown',e=>{ if(e.button===0)shooting=true; });
-document.addEventListener('mouseup',  e=>{ if(e.button===0)shooting=false; });
+document.addEventListener('mousedown', e => {
+  if (e.button === 0) shooting = true;
+  if (e.button === 2 && curWeapon === 'sniper' && pointerLocked) {
+    scoped = true;
+    cam.fov = SCOPE_FOV;
+    cam.updateProjectionMatrix();
+    scopeEl.classList.add('on');
+    document.getElementById('xhair').style.display = 'none';
+  }
+});
+document.addEventListener('mouseup', e => {
+  if (e.button === 0) shooting = false;
+  if (e.button === 2) {
+    scoped = false;
+    cam.fov = NORMAL_FOV;
+    cam.updateProjectionMatrix();
+    scopeEl.classList.remove('on');
+    document.getElementById('xhair').style.display = 'block';
+  }
+});
+// Prevent right-click context menu in game
+canvas.addEventListener('contextmenu', e => e.preventDefault());
 document.addEventListener('mousemove',e=>{
   if(!pointerLocked||!inGame||!alive)return;
   yaw  -=e.movementX*.002;
@@ -453,6 +498,14 @@ document.addEventListener('pointerlockchange',()=>{
 document.addEventListener('pointerlockerror',()=>setTimeout(tryLock,600));
 
 function sw(w){
+  // Cancel scope if switching away from sniper
+  if (scoped && w !== 'sniper') {
+    scoped = false;
+    cam.fov = NORMAL_FOV;
+    cam.updateProjectionMatrix();
+    scopeEl.classList.remove('on');
+    document.getElementById('xhair').style.display = 'block';
+  }
   curWeapon=w;
   socket.emit('switchWeapon',{weapon:w});
   document.querySelectorAll('.wbtn').forEach(b=>b.classList.toggle('on',b.dataset.w===w));
@@ -587,6 +640,10 @@ function drawKF(kf){
 }
 function showDeath(){
   alive=false; pointerLocked=false;
+  // Cancel scope
+  scoped=false; cam.fov=NORMAL_FOV; cam.updateProjectionMatrix();
+  scopeEl.classList.remove('on');
+  document.getElementById('xhair').style.display='block';
   document.getElementById('deathscreen').style.display='flex';
   document.getElementById('lockprompt').style.display='none';
   let t=5;
