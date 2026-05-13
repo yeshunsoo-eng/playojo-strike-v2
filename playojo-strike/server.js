@@ -1,5 +1,6 @@
 const express = require('express');
 const http    = require('http');
+const https   = require('https');
 const { Server } = require('socket.io');
 const path    = require('path');
 
@@ -11,10 +12,22 @@ const io     = new Server(server, {
 
 const PORT = process.env.PORT || 3000;
 
-// Serve everything in /public as static files
+// Serve static files from /public
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Fallback: always serve index.html
+// Image proxy — fetches external images server-side (no CORS)
+app.get('/proxy-image', (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).send('Missing url');
+  const mod = url.startsWith('https') ? https : http;
+  mod.get(url, imgRes => {
+    res.setHeader('Content-Type', imgRes.headers['content-type'] || 'image/png');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    imgRes.pipe(res);
+  }).on('error', () => res.status(500).send('Proxy error'));
+});
+
+// Fallback: serve index.html
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
