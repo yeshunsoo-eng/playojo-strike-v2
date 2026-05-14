@@ -87,11 +87,12 @@ function assignTeam() {
 
 function publicPlayer(p) {
   return {
-    id: p.id, name: p.name, team: p.team,
-    health: p.health, alive: p.alive,
-    x: p.x, y: p.y, z: p.z, rotY: p.rotY,
-    kills: p.kills, deaths: p.deaths,
-    weapon: p.weapon, ammo: p.ammo, reserve: p.reserve
+    id:p.id, name:p.name, team:p.team, skin:p.skin||0,
+    health:p.health, alive:p.alive,
+    x:p.x, y:p.y, z:p.z, rotY:p.rotY,
+    kills:p.kills, deaths:p.deaths,
+    weapon:p.weapon, ammo:p.ammo, reserve:p.reserve,
+    isBot:p.isBot||false
   };
 }
 
@@ -402,15 +403,14 @@ io.on('connection', socket => {
       dx: dirX, dy: dirY, dz: dirZ
     });
 
-    // Hit detection
     const ox = shooter.x, oy = shooter.y + 0.8, oz = shooter.z;
     const boxDist = nearestBox(ox, oy, oz, dirX, dirY, dirZ);
-
     let hit = null, minDist = Infinity;
+
+    // FFA — everyone is a valid target except yourself
     Object.values(players).forEach(target => {
-      if (target.id === socket.id) return;
+      if (target.id === socket.id) return;  // can't shoot yourself
       if (!target.alive) return;
-      if (target.team === shooter.team) return;
 
       const dx = target.x - ox;
       const dy = (target.y + 0.8) - oy;
